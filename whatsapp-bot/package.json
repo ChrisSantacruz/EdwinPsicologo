@@ -1,0 +1,25 @@
+{
+  "name": "edwin-whatsapp-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bot WhatsApp (Baileys) con sesión persistente en MongoDB Atlas — pensado para Render free",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test:mongo": "node scripts/test-mongo.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.18",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.12.1",
+    "pino": "^9.6.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}

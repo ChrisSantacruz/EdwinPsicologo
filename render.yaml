@@ -1,0 +1,20 @@
+# Blueprint Render — bot WhatsApp (Baileys + MongoDB)
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: edwin-whatsapp-bot
+    runtime: node
+    plan: free
+    rootDir: whatsapp-bot
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: WA_SESSION_ID
+        value: default
+      - key: MONGO_URI
+        sync: false

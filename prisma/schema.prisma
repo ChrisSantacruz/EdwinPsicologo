@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Location {
+  id           String        @id @default(cuid())
+  name         String
+  address      String
+  neighborhood String
+  notes        String?
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+}
+
+model Service {
+  id           String        @id @default(cuid())
+  name         String
+  defaultPrice Int
+  active       Boolean       @default(true)
+  sortOrder    Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+}
+
+model Patient {
+  id           String        @id @default(cuid())
+  name         String
+  phone        String
+  phoneKey     String        @unique
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+  reminders    Reminder[]
+}
+
+model Appointment {
+  id                 String     @id @default(cuid())
+  token              String     @unique
+  patientName        String
+  patientPhone       String
+  scheduledAt        DateTime
+  price              Int
+  status             String     @default("PENDING_PATIENT")
+  paymentMethod      String?
+  notes              String?
+  whatsappMessage    String?
+  googleEventId      String?
+  patientConfirmedAt DateTime?
+  adminConfirmedAt   DateTime?
+  reminderSentAt     DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  locationId         String
+  serviceId          String
+  patientId          String?
+  location           Location   @relation(fields: [locationId], references: [id])
+  service            Service    @relation(fields: [serviceId], references: [id])
+  patient            Patient?   @relation(fields: [patientId], references: [id])
+  reminders          Reminder[]
+}
+
+model Reminder {
+  id            String        @id @default(cuid())
+  title         String
+  notes         String?
+  dueAt         DateTime
+  done          Boolean       @default(false)
+  kind          String        @default("PERSONAL")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  appointmentId String?
+  patientId     String?
+  appointment   Appointment?  @relation(fields: [appointmentId], references: [id])
+  patient       Patient?      @relation(fields: [patientId], references: [id])
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  title         String
+  body          String
+  read          Boolean  @default(false)
+  appointmentId String?
+  createdAt     DateTime @default(now())
+}
+
+model GoogleToken {
+  id           String    @id @default("default")
+  accessToken  String
+  refreshToken String
+  expiryDate   DateTime?
+  updatedAt    DateTime  @updatedAt
+}
