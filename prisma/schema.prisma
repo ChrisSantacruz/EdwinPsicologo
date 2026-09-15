@@ -3,12 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model Admin {
-  id           String   @id @default(cuid())
+  id           String   @id @default(cuid()) @map("_id")
   email        String   @unique
   name         String
   passwordHash String
@@ -17,7 +17,7 @@ model Admin {
 }
 
 model Location {
-  id           String        @id @default(cuid())
+  id           String        @id @default(cuid()) @map("_id")
   name         String
   address      String
   neighborhood String
@@ -29,7 +29,7 @@ model Location {
 }
 
 model Service {
-  id           String        @id @default(cuid())
+  id           String        @id @default(cuid()) @map("_id")
   name         String
   defaultPrice Int
   active       Boolean       @default(true)
@@ -40,7 +40,7 @@ model Service {
 }
 
 model Patient {
-  id           String        @id @default(cuid())
+  id           String        @id @default(cuid()) @map("_id")
   name         String
   phone        String
   phoneKey     String        @unique
@@ -52,7 +52,7 @@ model Patient {
 }
 
 model Appointment {
-  id                 String     @id @default(cuid())
+  id                 String     @id @default(cuid()) @map("_id")
   token              String     @unique
   patientName        String
   patientPhone       String
@@ -78,22 +78,22 @@ model Appointment {
 }
 
 model Reminder {
-  id            String        @id @default(cuid())
+  id            String       @id @default(cuid()) @map("_id")
   title         String
   notes         String?
   dueAt         DateTime
-  done          Boolean       @default(false)
-  kind          String        @default("PERSONAL")
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  done          Boolean      @default(false)
+  kind          String       @default("PERSONAL")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   appointmentId String?
   patientId     String?
-  appointment   Appointment?  @relation(fields: [appointmentId], references: [id])
-  patient       Patient?      @relation(fields: [patientId], references: [id])
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  patient       Patient?     @relation(fields: [patientId], references: [id])
 }
 
 model Notification {
-  id            String   @id @default(cuid())
+  id            String   @id @default(cuid()) @map("_id")
   title         String
   body          String
   read          Boolean  @default(false)
@@ -102,7 +102,7 @@ model Notification {
 }
 
 model GoogleToken {
-  id           String    @id @default("default")
+  id           String    @id @default("default") @map("_id")
   accessToken  String
   refreshToken String
   expiryDate   DateTime?
