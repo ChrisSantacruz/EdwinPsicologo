@@ -19,6 +19,7 @@ import {
 } from "@/app/actions";
 import { PRACTICE } from "@/lib/constants";
 import { isWhatsAppConfigured } from "@/lib/whatsapp";
+import { getAppUrl } from "@/lib/app-url";
 
 export default async function AppointmentDetailPage({
   params,
@@ -41,7 +42,7 @@ export default async function AppointmentDetailPage({
 
   if (!appointment) notFound();
 
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppUrl();
   const confirmUrl = `${appUrl}/c/${appointment.token}`;
   const message = appointment.whatsappMessage ?? "";
   const waPatient = whatsappLink(appointment.patientPhone, message);

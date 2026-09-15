@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Cormorant_Garamond } from "next/font/google";
+import { getAppUrl } from "@/lib/app-url";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -14,7 +15,7 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.APP_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(getAppUrl()),
   title: {
     default: "Edwin Mideros — Atención psicológica",
     template: "%s · Edwin Mideros",

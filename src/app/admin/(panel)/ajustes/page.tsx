@@ -3,6 +3,7 @@ import { getGoogleAuthUrl, isGoogleConnected } from "@/lib/calendar";
 import { PRACTICE } from "@/lib/constants";
 import { formatPhoneDisplay } from "@/lib/format";
 import { isWhatsAppConfigured } from "@/lib/whatsapp";
+import { getAppUrl } from "@/lib/app-url";
 
 export default async function AjustesPage() {
   const connected = await isGoogleConnected();
@@ -11,7 +12,7 @@ export default async function AjustesPage() {
     process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
   );
   const waConfigured = isWhatsAppConfigured();
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppUrl();
   const webhookUrl = `${appUrl}/api/whatsapp/webhook`;
 
   return (

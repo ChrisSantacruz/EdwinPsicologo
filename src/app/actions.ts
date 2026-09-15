@@ -23,6 +23,7 @@ import { normalizePhone, upsertPatient } from "@/lib/patients";
 import { parseContactsCsv } from "@/lib/csv";
 import { bogotaDateTime } from "@/lib/time";
 import { isWhatsAppConfigured, sendWhatsAppText } from "@/lib/whatsapp";
+import { getAppUrl } from "@/lib/app-url";
 
 async function notifyEdwin(input: {
   title: string;
@@ -81,7 +82,7 @@ function rebuildMessage(input: {
   serviceName: string;
   price: number;
 }) {
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppUrl();
   return buildConfirmationMessage({
     ...input,
     confirmUrl: `${appUrl}/c/${input.token}`,
@@ -273,7 +274,7 @@ export async function confirmNequiAction(appointmentId: string) {
 
   await syncCalendar(updated);
 
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppUrl();
   const adminUrl = `${appUrl}/admin/citas/${updated.id}`;
   const calendarUrl = buildGoogleCalendarUrl({
     title: `${updated.service.name} — ${updated.patientName}`,
@@ -356,7 +357,7 @@ export async function patientChoosePaymentAction(
     return { error: "Esta cita ya está confirmada" };
   }
 
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppUrl();
   const adminUrl = `${appUrl}/admin/citas/${appointment.id}`;
 
   async function buildAlerts(updated: {
@@ -626,7 +627,7 @@ export async function sendAppointmentWhatsAppAction(appointmentId: string) {
   });
   if (!appointment) return { error: "Cita no encontrada" };
 
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppUrl();
   const confirmUrl = `${appUrl}/c/${appointment.token}`;
   const message =
     appointment.whatsappMessage ??

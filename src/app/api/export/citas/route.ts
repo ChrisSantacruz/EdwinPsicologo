@@ -3,11 +3,12 @@ import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatBogota } from "@/lib/time";
 import { STATUS_LABEL } from "@/lib/constants";
+import { getAppUrl } from "@/lib/app-url";
 
 export async function GET() {
   const auth = await requireAdmin();
   if (!auth) {
-    return NextResponse.redirect(new URL("/admin/login", process.env.APP_URL ?? "http://localhost:3000"));
+    return NextResponse.redirect(new URL("/admin/login", getAppUrl()));
   }
 
   const appointments = await prisma.appointment.findMany({
