@@ -2,17 +2,29 @@ import "server-only";
 import { google } from "googleapis";
 import { prisma } from "./db";
 import { PRACTICE } from "./constants";
+import { getAppUrl } from "./app-url";
+import { TZ } from "./time";
+
+function getRedirectUri() {
+  const configured = process.env.GOOGLE_REDIRECT_URI?.trim();
+  if (configured) return configured;
+  return `${getAppUrl()}/api/google/callback`;
+}
 
 function oauthClient() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  const redirectUri = getRedirectUri();
 
-  if (!clientId || !clientSecret || !redirectUri) {
+  if (!clientId || !clientSecret) {
     return null;
   }
 
   return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+}
+
+export function getGoogleRedirectUri() {
+  return getRedirectUri();
 }
 
 export function getGoogleAuthUrl() {
@@ -121,8 +133,21 @@ export async function upsertCalendarEvent(appt: CalendarAppointment) {
     summary,
     description,
     location: `${appt.address}, ${appt.neighborhood}`,
-    start: { dateTime: start.toISOString() },
-    end: { dateTime: end.toISOString() },
+    start: {
+      dateTime: start.toISOString(),
+      timeZone: TZ,
+    },
+    end: {
+      dateTime: end.toISOString(),
+      timeZone: TZ,
+    },
+    reminders: {
+      useDefault: false,
+      overrides: [
+        { method: "popup", minutes: 60 },
+        { method: "popup", minutes: 15 },
+      ],
+    },
   };
 
   if (appt.googleEventId) {

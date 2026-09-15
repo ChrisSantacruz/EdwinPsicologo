@@ -16,9 +16,10 @@ export async function GET(request: Request) {
 
   try {
     await saveGoogleTokens(code);
-    redirect("/admin/ajustes?google=connected");
   } catch (err) {
     console.error(err);
     redirect("/admin/ajustes?google=error");
   }
+
+  redirect("/admin/ajustes?google=connected");
 }
