@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export function BrandMark({
   size = 64,
   className = "",
@@ -7,26 +9,18 @@ export function BrandMark({
 }) {
   return (
     <div
-      className={`relative shrink-0 overflow-hidden rounded-full shadow-lg shadow-[#7A1F2B]/25 ${className}`}
+      className={`relative shrink-0 overflow-hidden rounded-full bg-[#1a0505] shadow-lg shadow-[#7A1F2B]/25 ${className}`}
       style={{ width: size, height: size }}
       aria-label="Atención psicológica especializada"
     >
-      <svg viewBox="0 0 100 100" className="h-full w-full" role="img">
-        <defs>
-          <linearGradient id="ribbon" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#F2C14E" />
-            <stop offset="55%" stopColor="#E07A2F" />
-            <stop offset="100%" stopColor="#7A1F2B" />
-          </linearGradient>
-        </defs>
-        <circle cx="50" cy="50" r="50" fill="#7A1F2B" />
-        <circle cx="50" cy="50" r="42" fill="#FAF6F4" />
-        <path
-          d="M32 62c8-18 14-28 22-28 6 0 8 5 8 10 0 10-8 16-16 22 10-2 22-8 28-18 2 12-8 24-22 28-12 4-24-2-20-14z"
-          fill="url(#ribbon)"
-        />
-        <circle cx="50" cy="50" r="46" fill="none" stroke="#7A1F2B" strokeWidth="1.5" opacity="0.35" />
-      </svg>
+      <Image
+        src="/brand-logo.png"
+        alt="Atención psicológica especializada"
+        width={size}
+        height={size}
+        className="h-full w-full object-cover"
+        priority={size >= 64}
+      />
     </div>
   );
 }

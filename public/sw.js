@@ -11,8 +11,8 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(data.title, {
       body: data.body,
       tag: data.tag,
-      icon: "/icons/icon.svg",
-      badge: "/icons/icon.svg",
+      icon: "/icons/icon.png",
+      badge: "/icons/icon.png",
       data: { url: data.url },
       requireInteraction: true,
     }),
