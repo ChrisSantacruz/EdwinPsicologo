@@ -1,5 +1,8 @@
+import { customAlphabet } from "nanoid";
 import { prisma } from "@/lib/db";
 import { formatBogota } from "@/lib/time";
+
+const paymentCode = customAlphabet("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 4);
 
 /** Quita acentos y deja solo letras/números/guiones. */
 export function slugifyName(name: string) {
@@ -26,8 +29,6 @@ function slugifyService(name: string) {
 
 /**
  * Link elegante: /cita/maria-lopez-valoracion-psicologica-individual
- * Si ya existe (misma persona + mismo servicio), añade la fecha.
- * Solo en último recurso un sufijo corto.
  */
 export async function createAppointmentToken(
   patientName: string,
@@ -52,7 +53,6 @@ export async function createAppointmentToken(
     if (!exists) return token;
   }
 
-  // Casos extremos: misma persona, mismo servicio, misma hora
   for (let i = 2; i <= 20; i++) {
     const token = `${candidates[2]}-${i}`;
     const exists = await prisma.appointment.findUnique({
@@ -63,6 +63,20 @@ export async function createAppointmentToken(
   }
 
   return `${base}-${Date.now().toString(36)}`;
+}
+
+/** Referencia corta para Nequi (mensaje de la transferencia). */
+export async function createPaymentRef() {
+  for (let i = 0; i < 12; i++) {
+    const paymentRef = `EDW-${paymentCode()}`;
+    const exists = await prisma.appointment.findFirst({
+      where: { paymentRef },
+      select: { id: true },
+    });
+    if (!exists) return paymentRef;
+  }
+
+  return `EDW-${Date.now().toString(36).toUpperCase().slice(-4)}`;
 }
 
 export function appointmentPublicPath(token: string) {

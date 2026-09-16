@@ -122,6 +122,8 @@ export default async function PatientConfirmPage({
           initialStatus={appointment.status}
           practicePhone={PRACTICE.phone}
           nequiNumber={PRACTICE.nequi}
+          paymentRef={appointment.paymentRef}
+          amount={appointment.price}
         />
 
         <a

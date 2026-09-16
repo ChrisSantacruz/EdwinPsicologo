@@ -60,6 +60,8 @@ model Appointment {
   price              Int
   status             String     @default("PENDING_PATIENT")
   paymentMethod      String?
+  paymentRef         String?
+  paymentNote        String?
   notes              String?
   whatsappMessage    String?
   googleEventId      String?

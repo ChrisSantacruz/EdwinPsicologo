@@ -89,11 +89,21 @@ export default async function AppointmentDetailPage({
         <DetailRow label="Dirección" value={appointment.location.address} />
         <DetailRow label="Barrio" value={appointment.location.neighborhood} />
         {appointment.paymentMethod ? (
-          <DetailRow label="Pago" value={appointment.paymentMethod} />
+          <DetailRow
+            label="Pago"
+            value={
+              appointment.paymentMethod === "EFECTIVO"
+                ? "Efectivo"
+                : `Nequi${appointment.paymentRef ? ` · ${appointment.paymentRef}` : ""}`
+            }
+          />
+        ) : null}
+        {appointment.paymentNote ? (
+          <DetailRow label="Nota de pago" value={appointment.paymentNote} />
         ) : null}
         <DetailRow
           label="Google Calendar"
-          value={appointment.googleEventId ? "Evento creado" : "Sin conectar / pendiente"}
+          value={appointment.googleEventId ? "En tu agenda" : "Pendiente"}
         />
       </div>
 
@@ -117,20 +127,22 @@ export default async function AppointmentDetailPage({
       />
 
       <div className="ios-card space-y-3 p-5">
-        <h3 className="font-display text-xl font-semibold text-ink">WhatsApp</h3>
+        <h3 className="font-display text-xl font-semibold text-ink">Mensaje al paciente</h3>
         <pre className="whitespace-pre-wrap rounded-2xl bg-canvas p-4 text-sm leading-relaxed text-ink">
           {message}
         </pre>
-        <SendWhatsAppApiButton
-          configured={waConfigured}
-          action={sendAppointmentWhatsAppAction.bind(null, appointment.id)}
-        />
         <div className="grid gap-2 sm:grid-cols-2">
-          <a href={waPatient} target="_blank" rel="noreferrer" className="ios-btn ios-btn-secondary">
+          <a href={waPatient} target="_blank" rel="noreferrer" className="ios-btn ios-btn-primary">
             Abrir en WhatsApp
           </a>
           <CopyButton text={message} />
         </div>
+        {waConfigured ? (
+          <SendWhatsAppApiButton
+            configured={waConfigured}
+            action={sendAppointmentWhatsAppAction.bind(null, appointment.id)}
+          />
+        ) : null}
         <div className="rounded-2xl border border-line bg-white p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">Link paciente</p>
           <p className="mt-1 break-all text-sm text-burgundy">{confirmUrl}</p>
@@ -142,13 +154,16 @@ export default async function AppointmentDetailPage({
 
       {appointment.status === "AWAITING_PROOF" ? (
         <div className="ios-card space-y-3 border-burgundy/20 p-5">
-          <h3 className="font-display text-xl font-semibold text-ink">Comprobante Nequi pendiente</h3>
+          <h3 className="font-display text-xl font-semibold text-ink">Verificar Nequi</h3>
           <p className="text-sm text-muted">
-            Cuando el paciente te envíe el pantallazo al WhatsApp{" "}
-            {formatPhoneDisplay(PRACTICE.phone)}, confirma aquí para marcar la cita y actualizar
-            Calendar.
+            Revisa el pantallazo en WhatsApp. Debe coincidir el monto y la referencia{" "}
+            <strong className="font-mono text-burgundy">{appointment.paymentRef ?? "—"}</strong>.
           </p>
-          <ConfirmNequiButton action={confirmNequiAction.bind(null, appointment.id)} />
+          <ConfirmNequiButton
+            amount={appointment.price}
+            paymentRef={appointment.paymentRef}
+            action={async (note) => confirmNequiAction(appointment.id, note)}
+          />
         </div>
       ) : null}
 

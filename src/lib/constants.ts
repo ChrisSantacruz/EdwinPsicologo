@@ -15,8 +15,8 @@ export const PAYMENT = {
 export type PaymentMethod = (typeof PAYMENT)[keyof typeof PAYMENT];
 
 export const STATUS_LABEL: Record<string, string> = {
-  PENDING_PATIENT: "Pendiente paciente",
-  AWAITING_PROOF: "Esperando comprobante",
+  PENDING_PATIENT: "Esperando confirmación",
+  AWAITING_PROOF: "Nequi por verificar",
   CONFIRMED: "Confirmada",
   CANCELLED: "Cancelada",
 };

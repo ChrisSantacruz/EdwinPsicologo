@@ -2,13 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { patientChoosePaymentAction } from "@/app/actions";
-import { formatPhoneDisplay, whatsappLink } from "@/lib/format";
+import { formatMoney, formatPhoneDisplay, whatsappLink } from "@/lib/format";
 import { IconCash, IconCheck, IconNequi, IconWhatsApp } from "@/components/icons";
+import { CopyButton } from "@/components/client-actions";
 
 type ConfirmExtras = {
   patientConfirmWaUrl?: string;
   calendarUrl?: string;
-  botSent?: boolean;
+  paymentRef?: string | null;
+  amount?: number;
+  nequi?: string;
 };
 
 export function PatientPaymentChooser({
@@ -16,14 +19,22 @@ export function PatientPaymentChooser({
   initialStatus,
   practicePhone,
   nequiNumber,
+  paymentRef: initialRef,
+  amount: initialAmount,
 }: {
   token: string;
   initialStatus: string;
   practicePhone: string;
   nequiNumber: string;
+  paymentRef?: string | null;
+  amount?: number;
 }) {
   const [status, setStatus] = useState(initialStatus);
-  const [extras, setExtras] = useState<ConfirmExtras>({});
+  const [extras, setExtras] = useState<ConfirmExtras>({
+    paymentRef: initialRef,
+    amount: initialAmount,
+    nequi: nequiNumber,
+  });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -37,18 +48,21 @@ export function PatientPaymentChooser({
       setExtras({
         patientConfirmWaUrl: res.patientConfirmWaUrl,
         calendarUrl: res.calendarUrl,
-        botSent: res.botSent,
+        paymentRef: res.paymentRef,
+        amount: res.amount,
+        nequi: res.nequi ?? nequiNumber,
       });
     }
   }
 
+  const amountLabel = formatMoney(extras.amount ?? initialAmount ?? 0);
+  const refLabel = extras.paymentRef ?? initialRef ?? "—";
+  const nequiLabel = formatPhoneDisplay(extras.nequi ?? nequiNumber);
+
   if (status === "CONFIRMED") {
     const wa =
       extras.patientConfirmWaUrl ??
-      whatsappLink(
-        practicePhone,
-        `Hola, confirmo mi cita. ¡Mil gracias!`,
-      );
+      whatsappLink(practicePhone, `Hola, confirmo mi cita. ¡Mil gracias!`);
 
     return (
       <div className="ios-card patient-card fade-up space-y-4 p-5 text-center">
@@ -61,14 +75,11 @@ export function PatientPaymentChooser({
         </div>
         <p className="text-sm leading-relaxed text-muted">
           Tu espacio ya quedó reservado. Te esperamos con calma.
-          {extras.botSent ? " Edwin también recibió el aviso." : ""}
         </p>
-
         <a href={wa} target="_blank" rel="noreferrer" className="ios-btn ios-btn-primary w-full gap-2">
           <IconWhatsApp className="h-5 w-5" />
           Escribir por WhatsApp
         </a>
-
         {extras.calendarUrl ? (
           <a
             href={extras.calendarUrl}
@@ -88,26 +99,45 @@ export function PatientPaymentChooser({
       extras.patientConfirmWaUrl ??
       whatsappLink(
         practicePhone,
-        `Hola, elegí pagar por Nequi y te envío el comprobante para confirmar mi cita.`,
+        `Hola, pagué por Nequi ${amountLabel}. Referencia ${refLabel}. Te envío el pantallazo.`,
       );
 
     return (
       <div className="ios-card patient-card fade-up space-y-4 p-5">
         <div className="text-center">
-          <h2 className="font-display text-xl font-semibold text-ink">Pago por Nequi</h2>
+          <h2 className="font-display text-xl font-semibold text-ink">Paga por Nequi</h2>
+          <p className="mt-1 text-sm text-muted">Sigue estos pasos exactos</p>
           <div className="mx-auto mt-2 h-px w-14 bg-gradient-to-r from-transparent via-gold to-transparent" />
         </div>
-        <p className="text-sm leading-relaxed text-muted">
-          Transfiere a{" "}
-          <strong className="text-ink">{formatPhoneDisplay(nequiNumber)}</strong> y envía el
-          pantallazo por WhatsApp para completar tu confirmación.
-        </p>
-        <div className="rounded-2xl bg-burgundy/[0.06] px-4 py-3 text-center text-sm font-medium text-burgundy">
-          Edwin ya fue avisado
-        </div>
+
+        <ol className="space-y-3 text-left text-sm text-muted">
+          <li className="rounded-2xl bg-canvas px-4 py-3">
+            <span className="font-semibold text-ink">1. Monto exacto</span>
+            <p className="mt-1 text-lg font-semibold text-burgundy">{amountLabel}</p>
+          </li>
+          <li className="rounded-2xl bg-canvas px-4 py-3">
+            <span className="font-semibold text-ink">2. Número Nequi</span>
+            <p className="mt-1 text-lg font-semibold text-ink">{nequiLabel}</p>
+            <div className="mt-2">
+              <CopyButton text={(extras.nequi ?? nequiNumber).replace(/\D/g, "")} label="Copiar número" />
+            </div>
+          </li>
+          <li className="rounded-2xl bg-canvas px-4 py-3">
+            <span className="font-semibold text-ink">3. En el mensaje de la transferencia escribe</span>
+            <p className="mt-1 font-mono text-lg font-bold tracking-wide text-burgundy">{refLabel}</p>
+            <div className="mt-2">
+              <CopyButton text={refLabel} label="Copiar referencia" />
+            </div>
+          </li>
+          <li className="rounded-2xl bg-canvas px-4 py-3">
+            <span className="font-semibold text-ink">4. Envía el pantallazo</span>
+            <p className="mt-1">Por WhatsApp a Edwin. Él verifica y confirma tu cita.</p>
+          </li>
+        </ol>
+
         <a href={waProof} target="_blank" rel="noreferrer" className="ios-btn ios-btn-primary w-full gap-2">
           <IconWhatsApp className="h-5 w-5" />
-          Enviar comprobante
+          Enviar pantallazo
         </a>
         {extras.calendarUrl ? (
           <a
@@ -136,7 +166,9 @@ export function PatientPaymentChooser({
     <div className="ios-card patient-card fade-up space-y-4 p-5">
       <div className="text-center">
         <h2 className="font-display text-xl font-semibold text-ink">Confirma tu asistencia</h2>
-        <p className="mt-1 text-sm text-muted">Elige cómo realizarás el pago</p>
+        <p className="mt-1 text-sm text-muted">
+          Inversión: <strong className="text-ink">{amountLabel}</strong>
+        </p>
         <div className="mx-auto mt-2 h-px w-14 bg-gradient-to-r from-transparent via-gold to-transparent" />
       </div>
 
@@ -155,9 +187,7 @@ export function PatientPaymentChooser({
         </span>
         <span>
           <span className="block font-semibold text-ink">Pagaré en efectivo</span>
-          <span className="mt-0.5 block text-xs text-muted">
-            Confirmas al instante
-          </span>
+          <span className="mt-0.5 block text-xs text-muted">Confirmas al instante</span>
         </span>
       </button>
 
@@ -177,7 +207,7 @@ export function PatientPaymentChooser({
         <span>
           <span className="block font-semibold text-ink">Pagar por Nequi</span>
           <span className="mt-0.5 block text-xs text-muted">
-            Al {formatPhoneDisplay(nequiNumber)} · envías pantallazo
+            Al {nequiLabel} · con referencia de pago
           </span>
         </span>
       </button>
