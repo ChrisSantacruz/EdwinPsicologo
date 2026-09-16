@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { nudgePaymentReminders } from "@/lib/payment-reminders";
 
 export async function GET(request: Request) {
   const auth = await requireAdmin();
   if (!auth) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  // Mientras Edwin tiene el panel abierto, revisamos recordatorios de pago
+  await nudgePaymentReminders().catch(() => null);
 
   const { searchParams } = new URL(request.url);
   const after = searchParams.get("after");
