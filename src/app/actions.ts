@@ -153,7 +153,11 @@ export async function createAppointmentAction(formData: FormData) {
   ]);
   if (!service || !location) return { error: "Servicio o sede no encontrados" };
 
-  const token = await createAppointmentToken(data.patientName);
+  const token = await createAppointmentToken(
+    data.patientName,
+    service.name,
+    scheduledAt,
+  );
   const whatsappMessage = rebuildMessage({
     token,
     scheduledAt,

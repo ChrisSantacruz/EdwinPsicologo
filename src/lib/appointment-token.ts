@@ -1,7 +1,5 @@
-import { customAlphabet } from "nanoid";
 import { prisma } from "@/lib/db";
-
-const shortId = customAlphabet("abcdefghijkmnopqrstuvwxyz23456789", 4);
+import { formatBogota } from "@/lib/time";
 
 /** Quita acentos y deja solo letras/números/guiones. */
 export function slugifyName(name: string) {
@@ -12,18 +10,41 @@ export function slugifyName(name: string) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 48) || "paciente";
+    .slice(0, 40) || "paciente";
+}
+
+function slugifyService(name: string) {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 36) || "cita";
 }
 
 /**
- * Token elegante para el link público:
- * maria-lopez-k2m9  →  /cita/maria-lopez-k2m9
+ * Link elegante: /cita/maria-lopez-valoracion-psicologica-individual
+ * Si ya existe (misma persona + mismo servicio), añade la fecha.
+ * Solo en último recurso un sufijo corto.
  */
-export async function createAppointmentToken(patientName: string) {
-  const base = slugifyName(patientName);
+export async function createAppointmentToken(
+  patientName: string,
+  serviceName: string,
+  scheduledAt: Date,
+) {
+  const patient = slugifyName(patientName);
+  const service = slugifyService(serviceName);
+  const base = `${patient}-${service}`;
 
-  for (let attempt = 0; attempt < 8; attempt++) {
-    const token = `${base}-${shortId()}`;
+  const candidates = [
+    base,
+    `${base}-${formatBogota(scheduledAt, "yyyy-MM-dd")}`,
+    `${base}-${formatBogota(scheduledAt, "yyyy-MM-dd-HHmm")}`,
+  ];
+
+  for (const token of candidates) {
     const exists = await prisma.appointment.findUnique({
       where: { token },
       select: { id: true },
@@ -31,7 +52,17 @@ export async function createAppointmentToken(patientName: string) {
     if (!exists) return token;
   }
 
-  return `${base}-${shortId()}${shortId()}`;
+  // Casos extremos: misma persona, mismo servicio, misma hora
+  for (let i = 2; i <= 20; i++) {
+    const token = `${candidates[2]}-${i}`;
+    const exists = await prisma.appointment.findUnique({
+      where: { token },
+      select: { id: true },
+    });
+    if (!exists) return token;
+  }
+
+  return `${base}-${Date.now().toString(36)}`;
 }
 
 export function appointmentPublicPath(token: string) {
