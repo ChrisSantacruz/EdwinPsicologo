@@ -34,6 +34,8 @@ yarn-error.log*
 .env
 .env.local
 .env.*.local
+.envrender
+.envvercel
 !.env.example
 !whatsapp-bot/.env.example
 
