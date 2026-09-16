@@ -271,7 +271,10 @@ export async function updateAppointmentAction(formData: FormData) {
   redirect(`/admin/citas/${id}?updated=1`);
 }
 
-export async function confirmNequiAction(appointmentId: string, paymentNote?: string) {
+export async function confirmAppointmentAction(
+  appointmentId: string,
+  paymentNote?: string,
+) {
   const auth = await requireAdmin();
   if (!auth) redirect("/admin/login");
 
@@ -284,11 +287,20 @@ export async function confirmNequiAction(appointmentId: string, paymentNote?: st
   if (appointment.status === STATUS.CONFIRMED) {
     return { error: "Esta cita ya estaba confirmada" };
   }
-  if (appointment.status !== STATUS.AWAITING_PROOF) {
-    return { error: "Solo puedes confirmar cuando el paciente eligió Nequi y envió el pantallazo" };
+
+  const canConfirm =
+    appointment.status === STATUS.AWAITING_PROOF ||
+    appointment.status === STATUS.AWAITING_EDWIN;
+
+  if (!canConfirm) {
+    return { error: "Aún no hay nada por confirmar de parte del paciente" };
   }
-  if (appointment.paymentMethod !== PAYMENT.NEQUI) {
-    return { error: "Esta cita no está marcada como Nequi" };
+
+  if (
+    appointment.status === STATUS.AWAITING_PROOF &&
+    appointment.paymentMethod !== PAYMENT.NEQUI
+  ) {
+    return { error: "Esta cita no está en flujo Nequi" };
   }
 
   const updated = await prisma.appointment.update({
@@ -296,24 +308,54 @@ export async function confirmNequiAction(appointmentId: string, paymentNote?: st
     data: {
       status: STATUS.CONFIRMED,
       adminConfirmedAt: new Date(),
-      paymentMethod: PAYMENT.NEQUI,
-      paymentNote: paymentNote?.trim() || null,
+      paymentNote:
+        appointment.paymentMethod === PAYMENT.NEQUI
+          ? paymentNote?.trim() || null
+          : appointment.paymentNote,
     },
     include: { service: true, location: true },
   });
 
   await syncCalendar(updated);
 
+  const { buildEdwinConfirmedPatientMessage } = await import("@/lib/format");
+  const confirmMessage = buildEdwinConfirmedPatientMessage({
+    patientName: updated.patientName,
+    scheduledAt: updated.scheduledAt,
+    serviceName: updated.service.name,
+    address: updated.location.address,
+    neighborhood: updated.location.neighborhood,
+  });
+  const confirmWaUrl = whatsappLink(updated.patientPhone, confirmMessage);
+
+  // WhatsApp #2: confirmación al paciente (si hay bot); si no, Edwin envía con el botón
+  let whatsappSent = false;
+  if (isWhatsAppConfigured()) {
+    const { sendWhatsAppText } = await import("@/lib/whatsapp");
+    const send = await sendWhatsAppText(updated.patientPhone, confirmMessage);
+    whatsappSent = send.ok;
+  }
+
   await notifyEdwin({
-    title: `Pago verificado · ${updated.patientName}`,
-    body: `${formatMoney(updated.price)} · ref ${updated.paymentRef ?? "—"} · ${formatAppointmentDate(updated.scheduledAt)} ${formatAppointmentTime(updated.scheduledAt)}`,
+    title: `Cita confirmada · ${updated.patientName}`,
+    body: `${updated.service.name} · ${formatAppointmentDate(updated.scheduledAt)} · ${formatAppointmentTime(updated.scheduledAt)}`,
     appointmentId: updated.id,
   });
 
   revalidatePath("/admin");
   revalidatePath(`/admin/citas/${appointmentId}`);
   revalidatePath(appointmentPublicPath(appointment.token));
-  return { ok: true };
+  return {
+    ok: true,
+    whatsappSent,
+    confirmWaUrl,
+    confirmMessage,
+  };
+}
+
+/** @deprecated usar confirmAppointmentAction */
+export async function confirmNequiAction(appointmentId: string, paymentNote?: string) {
+  return confirmAppointmentAction(appointmentId, paymentNote);
 }
 
 export async function cancelAppointmentAction(appointmentId: string) {
@@ -404,19 +446,17 @@ export async function patientChoosePaymentAction(
       data: {
         paymentMethod: PAYMENT.EFECTIVO,
         paymentRef,
-        status: STATUS.CONFIRMED,
+        status: STATUS.AWAITING_EDWIN,
         patientConfirmedAt: new Date(),
-        adminConfirmedAt: new Date(),
       },
       include: { service: true, location: true },
     });
 
-    await syncCalendar(updated);
     const alerts = await buildAlerts(updated);
 
     await notifyEdwin({
-      title: `${updated.patientName} confirmó · efectivo`,
-      body: `${updated.service.name} · ${formatMoney(updated.price)} · ${formatAppointmentDate(updated.scheduledAt)} · ${formatAppointmentTime(updated.scheduledAt)}`,
+      title: `${updated.patientName} eligió efectivo`,
+      body: `Confirma la cita cuando quieras · ${updated.service.name} · ${formatAppointmentDate(updated.scheduledAt)} · ${formatAppointmentTime(updated.scheduledAt)}`,
       appointmentId: updated.id,
     });
 
@@ -424,7 +464,7 @@ export async function patientChoosePaymentAction(
     revalidatePath("/admin");
     return {
       ok: true,
-      status: STATUS.CONFIRMED,
+      status: STATUS.AWAITING_EDWIN,
       ...alerts,
     };
   }
@@ -443,8 +483,8 @@ export async function patientChoosePaymentAction(
   const alerts = await buildAlerts(updated);
 
   await notifyEdwin({
-    title: `${updated.patientName} · Nequi por verificar`,
-    body: `${formatMoney(updated.price)} · ref ${paymentRef} · ${formatAppointmentDate(updated.scheduledAt)} · ${formatAppointmentTime(updated.scheduledAt)}`,
+    title: `${updated.patientName} eligió Nequi`,
+    body: `Estate atento al pantallazo · ${formatMoney(updated.price)} · ref ${paymentRef} · ${formatAppointmentTime(updated.scheduledAt)}`,
     appointmentId: updated.id,
   });
 

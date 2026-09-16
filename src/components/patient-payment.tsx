@@ -7,7 +7,6 @@ import { IconCash, IconCheck, IconNequi, IconWhatsApp } from "@/components/icons
 import { CopyButton } from "@/components/client-actions";
 
 type ConfirmExtras = {
-  patientConfirmWaUrl?: string;
   calendarUrl?: string;
   paymentRef?: string | null;
   amount?: number;
@@ -46,7 +45,6 @@ export function PatientPaymentChooser({
     if ("status" in res && res.status) {
       setStatus(res.status);
       setExtras({
-        patientConfirmWaUrl: res.patientConfirmWaUrl,
         calendarUrl: res.calendarUrl,
         paymentRef: res.paymentRef,
         amount: res.amount,
@@ -60,10 +58,6 @@ export function PatientPaymentChooser({
   const nequiLabel = formatPhoneDisplay(extras.nequi ?? nequiNumber);
 
   if (status === "CONFIRMED") {
-    const wa =
-      extras.patientConfirmWaUrl ??
-      whatsappLink(practicePhone, `Hola, confirmo mi cita. ¡Mil gracias!`);
-
     return (
       <div className="ios-card patient-card fade-up space-y-4 p-5 text-center">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/10 text-success shadow-inner">
@@ -74,12 +68,34 @@ export function PatientPaymentChooser({
           <div className="mx-auto mt-2 h-px w-14 bg-gradient-to-r from-transparent via-gold to-transparent" />
         </div>
         <p className="text-sm leading-relaxed text-muted">
-          Tu espacio ya quedó reservado. Te esperamos con calma.
+          Edwin ya reservó tu espacio. Te esperamos con calma y puntualidad.
         </p>
-        <a href={wa} target="_blank" rel="noreferrer" className="ios-btn ios-btn-primary w-full gap-2">
-          <IconWhatsApp className="h-5 w-5" />
-          Escribir por WhatsApp
-        </a>
+        {extras.calendarUrl ? (
+          <a
+            href={extras.calendarUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="ios-btn ios-btn-secondary w-full"
+          >
+            Guardar en mi Calendar
+          </a>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (status === "AWAITING_EDWIN") {
+    return (
+      <div className="ios-card patient-card fade-up space-y-4 p-5 text-center">
+        <h2 className="font-display text-2xl font-semibold text-ink">Gracias por confiar</h2>
+        <div className="mx-auto h-px w-14 bg-gradient-to-r from-transparent via-gold to-transparent" />
+        <p className="text-sm leading-relaxed text-muted">
+          Elegiste pagar en efectivo. Edwin está confirmando tu cita con cariño. En cuanto la
+          confirme, te llegará un mensaje por WhatsApp con los detalles finales.
+        </p>
+        <p className="rounded-2xl bg-burgundy/[0.06] px-4 py-3 text-sm text-burgundy">
+          Este es un espacio seguro, de escucha y acompañamiento. Estamos aquí para ti.
+        </p>
         {extras.calendarUrl ? (
           <a
             href={extras.calendarUrl}
@@ -95,20 +111,23 @@ export function PatientPaymentChooser({
   }
 
   if (status === "AWAITING_PROOF") {
-    const waProof =
-      extras.patientConfirmWaUrl ??
-      whatsappLink(
-        practicePhone,
-        `Hola, pagué por Nequi ${amountLabel}. Referencia ${refLabel}. Te envío el pantallazo.`,
-      );
+    const waProof = whatsappLink(
+      practicePhone,
+      `Hola Edwin, te envío el pantallazo de mi Nequi. Monto ${amountLabel}. Referencia ${refLabel}.`,
+    );
 
     return (
       <div className="ios-card patient-card fade-up space-y-4 p-5">
         <div className="text-center">
           <h2 className="font-display text-xl font-semibold text-ink">Paga por Nequi</h2>
-          <p className="mt-1 text-sm text-muted">Sigue estos pasos exactos</p>
+          <p className="mt-1 text-sm text-muted">Con calma, paso a paso</p>
           <div className="mx-auto mt-2 h-px w-14 bg-gradient-to-r from-transparent via-gold to-transparent" />
         </div>
+
+        <p className="rounded-2xl bg-burgundy/[0.06] px-4 py-3 text-sm leading-relaxed text-burgundy">
+          Hasta que envíes el pantallazo al chat de Edwin, él no podrá confirmar tu cita. Confío en
+          que lo harás con transparencia: este espacio se construye con honestidad y cuidado.
+        </p>
 
         <ol className="space-y-3 text-left text-sm text-muted">
           <li className="rounded-2xl bg-canvas px-4 py-3">
@@ -123,32 +142,22 @@ export function PatientPaymentChooser({
             </div>
           </li>
           <li className="rounded-2xl bg-canvas px-4 py-3">
-            <span className="font-semibold text-ink">3. En el mensaje de la transferencia escribe</span>
+            <span className="font-semibold text-ink">3. En el mensaje de la transferencia</span>
             <p className="mt-1 font-mono text-lg font-bold tracking-wide text-burgundy">{refLabel}</p>
             <div className="mt-2">
               <CopyButton text={refLabel} label="Copiar referencia" />
             </div>
           </li>
           <li className="rounded-2xl bg-canvas px-4 py-3">
-            <span className="font-semibold text-ink">4. Envía el pantallazo</span>
-            <p className="mt-1">Por WhatsApp a Edwin. Él verifica y confirma tu cita.</p>
+            <span className="font-semibold text-ink">4. Envía el pantallazo a Edwin</span>
+            <p className="mt-1">Por WhatsApp. Él lo revisa en persona y confirma tu cita.</p>
           </li>
         </ol>
 
         <a href={waProof} target="_blank" rel="noreferrer" className="ios-btn ios-btn-primary w-full gap-2">
           <IconWhatsApp className="h-5 w-5" />
-          Enviar pantallazo
+          Abrir chat para enviar pantallazo
         </a>
-        {extras.calendarUrl ? (
-          <a
-            href={extras.calendarUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="ios-btn ios-btn-secondary w-full"
-          >
-            Guardar en mi Calendar
-          </a>
-        ) : null}
       </div>
     );
   }
@@ -187,7 +196,7 @@ export function PatientPaymentChooser({
         </span>
         <span>
           <span className="block font-semibold text-ink">Pagaré en efectivo</span>
-          <span className="mt-0.5 block text-xs text-muted">Confirmas al instante</span>
+          <span className="mt-0.5 block text-xs text-muted">Edwin confirmará tu cita</span>
         </span>
       </button>
 
@@ -207,13 +216,13 @@ export function PatientPaymentChooser({
         <span>
           <span className="block font-semibold text-ink">Pagar por Nequi</span>
           <span className="mt-0.5 block text-xs text-muted">
-            Al {nequiLabel} · con referencia de pago
+            Envías pantallazo · Edwin confirma
           </span>
         </span>
       </button>
 
       {error ? <p className="text-center text-sm text-burgundy">{error}</p> : null}
-      {pending ? <p className="text-center text-xs text-muted">Confirmando…</p> : null}
+      {pending ? <p className="text-center text-xs text-muted">Guardando…</p> : null}
     </div>
   );
 }

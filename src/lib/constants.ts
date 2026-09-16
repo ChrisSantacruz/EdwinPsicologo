@@ -1,6 +1,7 @@
 export const STATUS = {
   PENDING_PATIENT: "PENDING_PATIENT",
   AWAITING_PROOF: "AWAITING_PROOF",
+  AWAITING_EDWIN: "AWAITING_EDWIN",
   CONFIRMED: "CONFIRMED",
   CANCELLED: "CANCELLED",
 } as const;
@@ -15,8 +16,9 @@ export const PAYMENT = {
 export type PaymentMethod = (typeof PAYMENT)[keyof typeof PAYMENT];
 
 export const STATUS_LABEL: Record<string, string> = {
-  PENDING_PATIENT: "Esperando confirmación",
-  AWAITING_PROOF: "Nequi por verificar",
+  PENDING_PATIENT: "Esperando al paciente",
+  AWAITING_PROOF: "Nequi · revisar pantallazo",
+  AWAITING_EDWIN: "Efectivo · por confirmar",
   CONFIRMED: "Confirmada",
   CANCELLED: "Cancelada",
 };

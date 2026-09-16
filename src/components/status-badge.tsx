@@ -3,6 +3,7 @@ import { STATUS_LABEL } from "@/lib/constants";
 const classMap: Record<string, string> = {
   PENDING_PATIENT: "badge-pending",
   AWAITING_PROOF: "badge-awaiting",
+  AWAITING_EDWIN: "badge-awaiting",
   CONFIRMED: "badge-confirmed",
   CANCELLED: "badge-cancelled",
 };

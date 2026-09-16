@@ -58,23 +58,18 @@ export function buildConfirmationMessage(input: MessageInput) {
   let msg = `${hello}, ${greetingForNow().toLowerCase()} 🌿
 
 Te escribe ${PRACTICE.professionalName}, ${PRACTICE.title.toLowerCase()}.
-Quiero acompañarte en este espacio de cuidado.
 
-Te propongo esta cita:
+Preparé un espacio de cuidado para ti. Entra al link para ver los detalles de tu cita y confirmar tu asistencia con calma.
 
 🗓️ ${day}
 ⏰ ${time}
 🩺 ${input.serviceName}
-📍 ${input.address}
-🏙️ ${input.neighborhood}
-💰 Inversión: ${investment}
-
-Para confirmar, elige si pagarás en efectivo o por Nequi (${formatPhoneDisplay(PRACTICE.nequi)}).`;
+💰 Inversión: ${investment}`;
 
   if (input.confirmUrl) {
     msg += `
 
-Confirma aquí (es rápido y seguro):
+Tu espacio está aquí:
 ${input.confirmUrl}`;
   }
 
@@ -183,7 +178,7 @@ export function buildPatientToEdwinConfirmMessage(input: {
   const method =
     input.paymentMethod === "EFECTIVO"
       ? "efectivo"
-      : "Nequi (te envío el comprobante)";
+      : "Nequi (te envío el pantallazo)";
 
   return `Hola ${PRACTICE.professionalName.split(" ")[0]}, confirmo mi cita 🤍
 
@@ -194,6 +189,37 @@ Soy ${input.patientName}.
 💳 ${method}${input.address ? `\n📍 ${input.address}` : ""}
 
 ¡Mil gracias por tu acompañamiento!`;
+}
+
+/** WhatsApp #2: solo cuando Edwin ya confirmó en el panel. */
+export function buildEdwinConfirmedPatientMessage(input: {
+  patientName: string;
+  scheduledAt: Date;
+  serviceName: string;
+  address: string;
+  neighborhood: string;
+}) {
+  const first = input.patientName.split(" ")[0];
+  const day = formatAppointmentDate(input.scheduledAt);
+  const time = formatAppointmentTime(input.scheduledAt);
+
+  return `Hola ${first} 🌿
+
+${PRACTICE.professionalName} confirmó tu cita.
+
+Este es un espacio pensado para ti: de escucha, cuidado y acompañamiento. Estoy dispuesto a ayudarte en lo que necesites.
+
+🗓️ ${day}
+⏰ ${time}
+🩺 ${input.serviceName}
+📍 ${input.address}
+🏙️ ${input.neighborhood}
+
+Recuerda ser puntual para aprovechar bien nuestro encuentro.
+Si algo se cruza, avísame con tiempo por este chat.
+
+Te espero con calma.
+— ${PRACTICE.professionalName}`;
 }
 
 /** Link Calendar para el PACIENTE — solo datos cálidos, sin panel ni pagos. */

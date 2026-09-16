@@ -38,7 +38,9 @@ export default async function AdminDashboardPage() {
         include: { service: true },
         orderBy: { scheduledAt: "asc" },
       }),
-      prisma.appointment.count({ where: { status: "AWAITING_PROOF" } }),
+      prisma.appointment.count({
+        where: { status: { in: ["AWAITING_PROOF", "AWAITING_EDWIN"] } },
+      }),
       prisma.notification.findMany({
         where: { read: false },
         orderBy: { createdAt: "desc" },
@@ -85,7 +87,7 @@ export default async function AdminDashboardPage() {
           <p className="mt-1 text-2xl font-bold text-ink">{pending}</p>
         </div>
         <div className="ios-card p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Comprobante</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Por confirmar</p>
           <p className="mt-1 text-2xl font-bold text-burgundy">{awaitingCount}</p>
         </div>
         <div className="ios-card p-4">

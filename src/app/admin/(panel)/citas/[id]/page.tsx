@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { StatusBadge } from "@/components/status-badge";
-import { CopyButton, ConfirmNequiButton } from "@/components/client-actions";
+import { CopyButton, ConfirmAppointmentButton } from "@/components/client-actions";
 import { EditAppointmentForm } from "@/components/edit-appointment-form";
 import { SendWhatsAppApiButton } from "@/components/send-whatsapp-button";
 import {
@@ -14,10 +14,9 @@ import {
 } from "@/lib/format";
 import {
   cancelAppointmentAction,
-  confirmNequiAction,
+  confirmAppointmentAction,
   sendAppointmentWhatsAppAction,
 } from "@/app/actions";
-import { PRACTICE } from "@/lib/constants";
 import { isWhatsAppConfigured } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/app-url";
 import { appointmentPublicPath } from "@/lib/appointment-token";
@@ -154,15 +153,31 @@ export default async function AppointmentDetailPage({
 
       {appointment.status === "AWAITING_PROOF" ? (
         <div className="ios-card space-y-3 border-burgundy/20 p-5">
-          <h3 className="font-display text-xl font-semibold text-ink">Verificar Nequi</h3>
+          <h3 className="font-display text-xl font-semibold text-ink">Pantallazo Nequi</h3>
           <p className="text-sm text-muted">
-            Revisa el pantallazo en WhatsApp. Debe coincidir el monto y la referencia{" "}
-            <strong className="font-mono text-burgundy">{appointment.paymentRef ?? "—"}</strong>.
+            Revisa el pantallazo en tu WhatsApp (tú lo verificas). Luego confirma aquí y se enviará
+            el mensaje cálido de confirmación al paciente.
           </p>
-          <ConfirmNequiButton
+          <ConfirmAppointmentButton
+            mode="nequi"
             amount={appointment.price}
             paymentRef={appointment.paymentRef}
-            action={async (note) => confirmNequiAction(appointment.id, note)}
+            action={async (note) => confirmAppointmentAction(appointment.id, note)}
+          />
+        </div>
+      ) : null}
+
+      {appointment.status === "AWAITING_EDWIN" ? (
+        <div className="ios-card space-y-3 border-burgundy/20 p-5">
+          <h3 className="font-display text-xl font-semibold text-ink">Confirmar efectivo</h3>
+          <p className="text-sm text-muted">
+            El paciente eligió efectivo. Confirma la cita para enviarle el mensaje final por
+            WhatsApp.
+          </p>
+          <ConfirmAppointmentButton
+            mode="efectivo"
+            amount={appointment.price}
+            action={async (note) => confirmAppointmentAction(appointment.id, note)}
           />
         </div>
       ) : null}
