@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
-import { nanoid } from "nanoid";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
@@ -24,6 +23,10 @@ import { parseContactsCsv } from "@/lib/csv";
 import { bogotaDateTime } from "@/lib/time";
 import { isWhatsAppConfigured, sendWhatsAppText } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/app-url";
+import {
+  appointmentPublicPath,
+  createAppointmentToken,
+} from "@/lib/appointment-token";
 
 async function notifyEdwin(input: {
   title: string;
@@ -85,7 +88,7 @@ function rebuildMessage(input: {
   const appUrl = getAppUrl();
   return buildConfirmationMessage({
     ...input,
-    confirmUrl: `${appUrl}/c/${input.token}`,
+    confirmUrl: `${appUrl}${appointmentPublicPath(input.token)}`,
   });
 }
 
@@ -150,7 +153,7 @@ export async function createAppointmentAction(formData: FormData) {
   ]);
   if (!service || !location) return { error: "Servicio o sede no encontrados" };
 
-  const token = nanoid(12);
+  const token = await createAppointmentToken(data.patientName);
   const whatsappMessage = rebuildMessage({
     token,
     scheduledAt,
@@ -248,7 +251,7 @@ export async function updateAppointmentAction(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath(`/admin/citas/${id}`);
-  revalidatePath(`/c/${existing.token}`);
+  revalidatePath(appointmentPublicPath(existing.token));
   redirect(`/admin/citas/${id}?updated=1`);
 }
 
@@ -319,7 +322,7 @@ ${adminUrl}`;
 
   revalidatePath("/admin");
   revalidatePath(`/admin/citas/${appointmentId}`);
-  revalidatePath(`/c/${appointment.token}`);
+  revalidatePath(appointmentPublicPath(appointment.token));
   return { ok: true, calendarUrl };
 }
 
@@ -446,7 +449,7 @@ export async function patientChoosePaymentAction(
       appointmentId: updated.id,
     });
 
-    revalidatePath(`/c/${token}`);
+    revalidatePath(appointmentPublicPath(token));
     revalidatePath("/admin");
     return {
       ok: true,
@@ -473,7 +476,7 @@ export async function patientChoosePaymentAction(
     appointmentId: updated.id,
   });
 
-  revalidatePath(`/c/${token}`);
+  revalidatePath(appointmentPublicPath(token));
   revalidatePath("/admin");
   return {
     ok: true,
@@ -628,7 +631,7 @@ export async function sendAppointmentWhatsAppAction(appointmentId: string) {
   if (!appointment) return { error: "Cita no encontrada" };
 
   const appUrl = getAppUrl();
-  const confirmUrl = `${appUrl}/c/${appointment.token}`;
+  const confirmUrl = `${appUrl}${appointmentPublicPath(appointment.token)}`;
   const message =
     appointment.whatsappMessage ??
     rebuildMessage({

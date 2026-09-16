@@ -55,11 +55,14 @@ export default async function AjustesPage({
         <h3 className="font-semibold text-ink">WhatsApp Cloud API (recomendado · gratis)</h3>
         {waConfigured ? (
           <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
-            Credenciales detectadas · puedes enviar desde cada cita
+            Cloud API lista · puedes enviar desde cada cita sin abrir WhatsApp
           </p>
         ) : (
           <p className="rounded-2xl bg-canvas px-4 py-3 text-sm text-muted">
-            Sin configurar · el sistema usa “Abrir en WhatsApp” (wa.me) mientras tanto.
+            Cloud API no configurada (normal en prueba). El panel usa{" "}
+            <strong className="text-ink">Abrir en WhatsApp (wa.me)</strong> hacia{" "}
+            {formatPhoneDisplay(PRACTICE.phone)}. El bot de Render es aparte (
+            <code className="text-burgundy">/qr</code>).
           </p>
         )}
 

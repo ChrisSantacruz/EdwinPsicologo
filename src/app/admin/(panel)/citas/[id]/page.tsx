@@ -20,6 +20,7 @@ import {
 import { PRACTICE } from "@/lib/constants";
 import { isWhatsAppConfigured } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/app-url";
+import { appointmentPublicPath } from "@/lib/appointment-token";
 
 export default async function AppointmentDetailPage({
   params,
@@ -43,7 +44,7 @@ export default async function AppointmentDetailPage({
   if (!appointment) notFound();
 
   const appUrl = getAppUrl();
-  const confirmUrl = `${appUrl}/c/${appointment.token}`;
+  const confirmUrl = `${appUrl}${appointmentPublicPath(appointment.token)}`;
   const message = appointment.whatsappMessage ?? "";
   const waPatient = whatsappLink(appointment.patientPhone, message);
   const waConfigured = isWhatsAppConfigured();
