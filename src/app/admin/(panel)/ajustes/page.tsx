@@ -3,6 +3,7 @@ import { getGoogleAuthUrl, isGoogleConnected } from "@/lib/calendar";
 import { PRACTICE } from "@/lib/constants";
 import { formatPhoneDisplay } from "@/lib/format";
 import { isWhatsAppBotConfigured, isWhatsAppConfigured } from "@/lib/whatsapp";
+import { PushTestButton } from "@/components/push-test-button";
 
 export default async function AjustesPage({
   searchParams,
@@ -103,6 +104,7 @@ export default async function AjustesPage({
           En el iPhone: Safari → Compartir → Agregar a pantalla de inicio. Abre la app desde el
           ícono y activa las alertas. Así te llegan aunque cierres el panel.
         </p>
+        <PushTestButton />
       </div>
 
       <div className="ios-card space-y-3 p-5">

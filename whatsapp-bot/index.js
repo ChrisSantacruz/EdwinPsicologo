@@ -223,6 +223,59 @@ async function main() {
     res.status(200).send("ok");
   });
 
+  /**
+   * Cierra la sesión actual y fuerza un QR nuevo (para vincular el WhatsApp de Edwin).
+   * Header: x-bot-secret: BOT_SECRET
+   */
+  app.post("/logout", async (req, res) => {
+    const expected = process.env.BOT_SECRET?.trim();
+    if (!expected) {
+      return res.status(503).json({ ok: false, error: "BOT_SECRET no configurado" });
+    }
+    const provided =
+      req.headers["x-bot-secret"] ||
+      req.headers["authorization"]?.replace(/^Bearer\s+/i, "") ||
+      req.body?.secret;
+    if (provided !== expected) {
+      return res.status(401).json({ ok: false, error: "unauthorized" });
+    }
+
+    try {
+      latestQr = null;
+      latestQrAt = null;
+      waStatus = "logging_out";
+
+      if (sock) {
+        try {
+          await sock.logout();
+        } catch {
+          try {
+            sock.end?.(undefined);
+          } catch {
+            // ignore
+          }
+        }
+        sock = null;
+      }
+
+      await clearMongoAuthState(SESSION_ID);
+      reconnectAttempts = 0;
+      isConnecting = false;
+
+      setTimeout(() => {
+        if (!shuttingDown) startWhatsApp();
+      }, 1500);
+
+      return res.json({
+        ok: true,
+        message: "Sesión limpiada. En unos segundos aparecerá un QR nuevo.",
+      });
+    } catch (err) {
+      console.error("/logout:", err.message);
+      return res.status(500).json({ ok: false, error: err.message || "logout_failed" });
+    }
+  });
+
   /** PNG del QR para mostrar en el panel (edwinmideros.site/admin/whatsapp). */
   app.get("/qr.png", async (_req, res) => {
     if (sock?.user) {
@@ -362,7 +415,7 @@ ol{text-align:left;color:#444}
   <img src="${dataUrl}" alt="QR WhatsApp"/>
   <p class="muted">Generado hace ${ageSec}s · la página se refresca cada 15s (el QR caduca).</p>
   <ol>
-    <li>Abre WhatsApp en el celular <strong>3008468223</strong></li>
+    <li>Abre WhatsApp en el celular del consultorio</li>
     <li>Ajustes → Dispositivos vinculados</li>
     <li>Escanea el código de arriba</li>
   </ol>
