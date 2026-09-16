@@ -56,7 +56,7 @@ export default async function AdminDashboardPage() {
           <h2 className="font-display text-3xl font-semibold text-ink">Agenda</h2>
           <p className="mt-1 text-sm text-muted">
             Hoy y mañana · recordatorios en Google Calendar
-            {waReady ? " · WhatsApp API lista" : " · WhatsApp: modo wa.me"}
+            {waReady ? " · WhatsApp listo para enviar" : " · WhatsApp: Abrir en app"}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

@@ -6,7 +6,7 @@ import {
 } from "@/lib/calendar";
 import { PRACTICE } from "@/lib/constants";
 import { formatPhoneDisplay } from "@/lib/format";
-import { isWhatsAppConfigured } from "@/lib/whatsapp";
+import { isWhatsAppConfigured, isWhatsAppBotConfigured } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/app-url";
 
 export default async function AjustesPage({
@@ -22,8 +22,10 @@ export default async function AjustesPage({
   );
   const redirectUri = getGoogleRedirectUri();
   const waConfigured = isWhatsAppConfigured();
+  const botConfigured = isWhatsAppBotConfigured();
   const appUrl = getAppUrl();
   const webhookUrl = `${appUrl}/api/whatsapp/webhook`;
+  const botUrl = process.env.WHATSAPP_BOT_URL?.replace(/\/$/, "") ?? "";
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
@@ -52,17 +54,46 @@ export default async function AjustesPage({
       </div>
 
       <div className="ios-card space-y-4 p-5">
-        <h3 className="font-semibold text-ink">WhatsApp Cloud API (recomendado · gratis)</h3>
-        {waConfigured ? (
+        <h3 className="font-semibold text-ink">WhatsApp (bot Render)</h3>
+        {botConfigured ? (
           <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
-            Cloud API lista · puedes enviar desde cada cita sin abrir WhatsApp
+            Bot enlazado · el botón “Enviar mensaje” usa tu WhatsApp vinculado
+            {botUrl ? (
+              <>
+                {" "}
+                (
+                <a className="underline" href={`${botUrl}/qr`} target="_blank" rel="noreferrer">
+                  ver estado
+                </a>
+                )
+              </>
+            ) : null}
           </p>
         ) : (
           <p className="rounded-2xl bg-canvas px-4 py-3 text-sm text-muted">
-            Cloud API no configurada (normal en prueba). El panel usa{" "}
+            En Vercel agrega{" "}
+            <code className="text-burgundy">WHATSAPP_BOT_URL=https://edwinpsicologo.onrender.com</code>{" "}
+            y el mismo <code className="text-burgundy">WHATSAPP_BOT_SECRET</code> /{" "}
+            <code className="text-burgundy">BOT_SECRET</code> que en Render.
+          </p>
+        )}
+      </div>
+
+      <div className="ios-card space-y-4 p-5">
+        <h3 className="font-semibold text-ink">WhatsApp Cloud API (Meta · opcional)</h3>
+        {waConfigured && !botConfigured ? (
+          <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
+            Cloud API lista · puedes enviar desde cada cita sin abrir WhatsApp
+          </p>
+        ) : botConfigured ? (
+          <p className="rounded-2xl bg-canvas px-4 py-3 text-sm text-muted">
+            No hace falta Meta si ya usas el bot de Render. Cloud API es alternativa oficial.
+          </p>
+        ) : (
+          <p className="rounded-2xl bg-canvas px-4 py-3 text-sm text-muted">
+            Sin Meta ni bot: el panel usa{" "}
             <strong className="text-ink">Abrir en WhatsApp (wa.me)</strong> hacia{" "}
-            {formatPhoneDisplay(PRACTICE.phone)}. El bot de Render es aparte (
-            <code className="text-burgundy">/qr</code>).
+            {formatPhoneDisplay(PRACTICE.phone)}.
           </p>
         )}
 

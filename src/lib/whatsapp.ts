@@ -3,10 +3,21 @@ import { phoneDigits } from "./format";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
 
-export function isWhatsAppConfigured() {
+export function isWhatsAppBotConfigured() {
   return Boolean(
-    process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID,
+    process.env.WHATSAPP_BOT_URL?.trim() && process.env.WHATSAPP_BOT_SECRET?.trim(),
   );
+}
+
+export function isWhatsAppCloudConfigured() {
+  return Boolean(
+    process.env.WHATSAPP_TOKEN?.trim() && process.env.WHATSAPP_PHONE_NUMBER_ID?.trim(),
+  );
+}
+
+/** Bot Render o Meta Cloud API — cualquiera habilita “Enviar mensaje”. */
+export function isWhatsAppConfigured() {
+  return isWhatsAppBotConfigured() || isWhatsAppCloudConfigured();
 }
 
 export function toWhatsAppRecipient(phone: string) {
@@ -17,17 +28,61 @@ export function toWhatsAppRecipient(phone: string) {
 }
 
 type SendResult =
-  | { ok: true; messageId: string }
-  | { ok: false; error: string; code?: number };
+  | { ok: true; messageId: string; mode?: "bot" | "text" | "template" }
+  | { ok: false; error: string; code?: number; mode?: "none" };
+
+async function sendViaBot(toPhone: string, body: string): Promise<SendResult> {
+  const base = process.env.WHATSAPP_BOT_URL!.replace(/\/$/, "");
+  const secret = process.env.WHATSAPP_BOT_SECRET!;
+
+  const res = await fetch(`${base}/send`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-bot-secret": secret,
+    },
+    body: JSON.stringify({
+      to: toWhatsAppRecipient(toPhone),
+      text: body,
+    }),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    messageId?: string;
+    error?: string;
+    status?: string;
+  };
+
+  if (!res.ok || !data.ok) {
+    const hint =
+      data.error === "whatsapp_not_connected"
+        ? " El bot no tiene WhatsApp vinculado: abre /qr en Render."
+        : "";
+    return {
+      ok: false,
+      error: `${data.error ?? `Error HTTP ${res.status}`}.${hint}`,
+      mode: "none",
+    };
+  }
+
+  return { ok: true, messageId: data.messageId ?? "sent", mode: "bot" };
+}
 
 export async function sendWhatsAppText(
   toPhone: string,
   body: string,
 ): Promise<SendResult> {
-  if (!isWhatsAppConfigured()) {
+  if (isWhatsAppBotConfigured()) {
+    return sendViaBot(toPhone, body);
+  }
+
+  if (!isWhatsAppCloudConfigured()) {
     return {
       ok: false,
-      error: "WhatsApp Cloud API no configurado. Completa WHATSAPP_TOKEN y WHATSAPP_PHONE_NUMBER_ID.",
+      error:
+        "WhatsApp no configurado. Define WHATSAPP_BOT_URL + WHATSAPP_BOT_SECRET (Render) o Meta Cloud API.",
+      mode: "none",
     };
   }
 
@@ -60,10 +115,15 @@ export async function sendWhatsAppText(
       ok: false,
       error: data.error?.message ?? `Error HTTP ${res.status}`,
       code: data.error?.code,
+      mode: "none",
     };
   }
 
-  return { ok: true, messageId: data.messages?.[0]?.id ?? "sent" };
+  return {
+    ok: true,
+    messageId: data.messages?.[0]?.id ?? "sent",
+    mode: "text",
+  };
 }
 
 /** Plantilla aprobada en Meta (para primer contacto fuera de ventana 24h). */
@@ -73,10 +133,11 @@ export async function sendWhatsAppTemplate(input: {
   languageCode?: string;
   bodyParams?: string[];
 }): Promise<SendResult> {
-  if (!isWhatsAppConfigured()) {
+  if (!isWhatsAppCloudConfigured()) {
     return {
       ok: false,
       error: "WhatsApp Cloud API no configurado.",
+      mode: "none",
     };
   }
 
@@ -125,14 +186,19 @@ export async function sendWhatsAppTemplate(input: {
       ok: false,
       error: data.error?.message ?? `Error HTTP ${res.status}`,
       code: data.error?.code,
+      mode: "none",
     };
   }
 
-  return { ok: true, messageId: data.messages?.[0]?.id ?? "sent" };
+  return {
+    ok: true,
+    messageId: data.messages?.[0]?.id ?? "sent",
+    mode: "template",
+  };
 }
 
 /**
- * Intenta texto libre; si Meta exige plantilla (fuera de 24h), usa plantilla configurada.
+ * Preferencia: bot Baileys (Render) → texto Cloud API → plantilla Meta.
  */
 export async function sendAppointmentWhatsApp(input: {
   toPhone: string;
@@ -144,12 +210,17 @@ export async function sendAppointmentWhatsApp(input: {
     serviceName: string;
     confirmUrl: string;
   };
-}): Promise<SendResult & { mode?: "text" | "template" | "none" }> {
+}): Promise<SendResult> {
   const textResult = await sendWhatsAppText(input.toPhone, input.fullMessage);
-  if (textResult.ok) return { ...textResult, mode: "text" };
+  if (textResult.ok) return textResult;
+
+  // Si falló el bot, no intentes Meta a menos que esté configurado
+  if (isWhatsAppBotConfigured() && !isWhatsAppCloudConfigured()) {
+    return textResult;
+  }
 
   const templateName = process.env.WHATSAPP_TEMPLATE_NAME;
-  if (templateName && input.templateParams) {
+  if (templateName && input.templateParams && isWhatsAppCloudConfigured()) {
     const templateResult = await sendWhatsAppTemplate({
       toPhone: input.toPhone,
       templateName,
@@ -162,17 +233,13 @@ export async function sendAppointmentWhatsApp(input: {
         input.templateParams.confirmUrl,
       ],
     });
-    if (templateResult.ok) return { ...templateResult, mode: "template" };
+    if (templateResult.ok) return templateResult;
     return {
-      ...templateResult,
+      ok: false,
       error: `Texto: ${textResult.error} | Plantilla: ${templateResult.error}`,
       mode: "none",
     };
   }
 
-  return {
-    ...textResult,
-    error: `${textResult.error} Tip: crea una plantilla en Meta Business y define WHATSAPP_TEMPLATE_NAME.`,
-    mode: "none",
-  };
+  return textResult;
 }

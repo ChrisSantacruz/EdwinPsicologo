@@ -16,5 +16,7 @@ services:
         value: info
       - key: WA_SESSION_ID
         value: default
+      - key: BOT_SECRET
+        generateValue: true
       - key: MONGO_URI
         sync: false

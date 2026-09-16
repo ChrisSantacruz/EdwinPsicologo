@@ -223,6 +223,58 @@ async function main() {
     res.status(200).send("ok");
   });
 
+  /**
+   * Enviar mensaje desde el panel (Vercel).
+   * Header: x-bot-secret: BOT_SECRET
+   * Body: { to: "3008468223", text: "..." }
+   */
+  app.post("/send", async (req, res) => {
+    const expected = process.env.BOT_SECRET?.trim();
+    if (!expected) {
+      return res.status(503).json({ ok: false, error: "BOT_SECRET no configurado en Render" });
+    }
+
+    const provided =
+      req.headers["x-bot-secret"] ||
+      req.headers["authorization"]?.replace(/^Bearer\s+/i, "") ||
+      req.body?.secret;
+
+    if (provided !== expected) {
+      return res.status(401).json({ ok: false, error: "unauthorized" });
+    }
+
+    if (!sock?.user || waStatus !== "connected") {
+      return res.status(503).json({
+        ok: false,
+        error: "whatsapp_not_connected",
+        status: waStatus,
+      });
+    }
+
+    const toRaw = String(req.body?.to ?? "").trim();
+    const text = String(req.body?.text ?? "").trim();
+    if (!toRaw || !text) {
+      return res.status(400).json({ ok: false, error: "Faltan to o text" });
+    }
+
+    let digits = toRaw.replace(/\D/g, "");
+    if (digits.length === 10) digits = `57${digits}`;
+    const jid = `${digits}@s.whatsapp.net`;
+
+    try {
+      const sent = await sock.sendMessage(jid, { text });
+      console.log(`📤 Enviado a ${jid}`);
+      return res.json({
+        ok: true,
+        messageId: sent?.key?.id ?? "sent",
+        to: jid,
+      });
+    } catch (err) {
+      console.error("Error /send:", err.message);
+      return res.status(500).json({ ok: false, error: err.message || "send_failed" });
+    }
+  });
+
   /** Página para escanear el QR desde el celular (Render Logs no muestran bien el ASCII). */
   app.get("/qr", async (_req, res) => {
     if (sock?.user) {
