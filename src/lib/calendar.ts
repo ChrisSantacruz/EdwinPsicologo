@@ -130,7 +130,7 @@ export async function upsertCalendarEvent(appt: CalendarAppointment) {
     `📍 ${appt.address}`,
     `🏙️ ${appt.neighborhood}`,
     ``,
-    `Un espacio de acompañamiento. Prepárate con calma.`,
+    `Un espacio de acompañamiento. Prepárate para tu sesión.`,
   ].join("\n");
 
   const body = {

@@ -64,20 +64,21 @@ export function PatientPaymentChooser({
           <IconCheck className="h-8 w-8" />
         </div>
         <div>
-          <h2 className="font-display text-2xl font-semibold text-ink">Cita confirmada</h2>
+          <h2 className="font-display text-2xl font-semibold text-ink">Pago exitoso</h2>
           <div className="mx-auto mt-2 h-px w-14 bg-gradient-to-r from-transparent via-gold to-transparent" />
         </div>
         <p className="text-sm leading-relaxed text-muted">
-          Edwin ya reservó tu espacio. Te esperamos con calma y puntualidad.
+          Tu pago fue aceptado y tu cita ya quedó confirmada. Por favor espera el día de tu
+          encuentro y recuerda agendarla en tu Google Calendar.
         </p>
         {extras.calendarUrl ? (
           <a
             href={extras.calendarUrl}
             target="_blank"
             rel="noreferrer"
-            className="ios-btn ios-btn-secondary w-full"
+            className="ios-btn ios-btn-primary w-full"
           >
-            Guardar en mi Calendar
+            Agendar en Google Calendar
           </a>
         ) : null}
       </div>
@@ -87,14 +88,15 @@ export function PatientPaymentChooser({
   if (status === "AWAITING_EDWIN") {
     return (
       <div className="ios-card patient-card fade-up space-y-4 p-5 text-center">
-        <h2 className="font-display text-2xl font-semibold text-ink">Gracias por confiar</h2>
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/10 text-success shadow-inner">
+          <IconCheck className="h-8 w-8" />
+        </div>
+        <h2 className="font-display text-2xl font-semibold text-ink">Pago registrado</h2>
         <div className="mx-auto h-px w-14 bg-gradient-to-r from-transparent via-gold to-transparent" />
         <p className="text-sm leading-relaxed text-muted">
-          Elegiste pagar en efectivo. Edwin está confirmando tu cita con cariño. En cuanto la
-          confirme, te llegará un mensaje por WhatsApp con los detalles finales.
-        </p>
-        <p className="rounded-2xl bg-burgundy/[0.06] px-4 py-3 text-sm text-burgundy">
-          Este es un espacio seguro, de escucha y acompañamiento. Estamos aquí para ti.
+          Elegiste pagar en efectivo. Tu solicitud quedó registrada. Edwin está revisando y, en
+          cuanto acepte tu cita, te llegará un mensaje por WhatsApp. Mientras tanto, puedes
+          agendarla en tu Google Calendar.
         </p>
         {extras.calendarUrl ? (
           <a
@@ -103,7 +105,7 @@ export function PatientPaymentChooser({
             rel="noreferrer"
             className="ios-btn ios-btn-secondary w-full"
           >
-            Guardar en mi Calendar
+            Agendar en Google Calendar
           </a>
         ) : null}
       </div>
@@ -120,7 +122,7 @@ export function PatientPaymentChooser({
       <div className="ios-card patient-card fade-up space-y-4 p-5">
         <div className="text-center">
           <h2 className="font-display text-xl font-semibold text-ink">Paga por Nequi</h2>
-          <p className="mt-1 text-sm text-muted">Con calma, paso a paso</p>
+          <p className="mt-1 text-sm text-muted">Paso a paso</p>
           <div className="mx-auto mt-2 h-px w-14 bg-gradient-to-r from-transparent via-gold to-transparent" />
         </div>
 

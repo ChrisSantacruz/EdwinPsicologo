@@ -86,7 +86,7 @@ export default async function PatientConfirmPage({
         <section className="ios-card patient-card fade-up overflow-hidden">
           <div className="border-b border-line bg-gradient-to-r from-burgundy/[0.06] via-gold/10 to-transparent px-5 py-3">
             <p className="text-sm font-semibold text-burgundy">{appointment.service.name}</p>
-            <p className="text-xs text-muted">{PRACTICE.professionalName} · Psicólogo</p>
+            <p className="text-xs text-muted">{PRACTICE.professionalName} · {PRACTICE.title}</p>
           </div>
           <div className="space-y-0 px-2 py-1">
             <DetailRow

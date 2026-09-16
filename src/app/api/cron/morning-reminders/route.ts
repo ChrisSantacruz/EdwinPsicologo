@@ -44,7 +44,7 @@ export async function GET(request: Request) {
 
     await notifyEdwin({
       title,
-      body: `${body}. Recuerda preparar el espacio con calma.`,
+      body: `${body}. Recuerda preparar el espacio.`,
       appointmentId: appt.id,
       tag: `morning-${appt.id}`,
     });

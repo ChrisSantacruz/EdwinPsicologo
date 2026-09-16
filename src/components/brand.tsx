@@ -49,7 +49,7 @@ export function BrandHeader({
       <h1 className="mt-2 font-display text-2xl font-bold text-ink sm:text-[1.7rem]">
         Edwin Mideros Meza
       </h1>
-      <p className="mt-1 text-sm text-muted">Psicólogo</p>
+      <p className="mt-1 text-sm text-muted">Psicólogo Clínico</p>
       {subtitle ? <p className="mt-3 text-sm leading-relaxed text-brown">{subtitle}</p> : null}
     </div>
   );
