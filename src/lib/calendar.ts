@@ -1,7 +1,6 @@
 import "server-only";
 import { google } from "googleapis";
 import { prisma } from "./db";
-import { PRACTICE } from "./constants";
 import { getAppUrl } from "./app-url";
 import { TZ } from "./time";
 
