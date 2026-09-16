@@ -63,6 +63,16 @@ export async function requireAdmin() {
   const admin = await prisma.admin.findUnique({
     where: { id: session.adminId },
   });
-  if (!admin) return null;
+  if (!admin) {
+    // Sesión vieja (p. ej. tras cambiar correo) → limpiar para evitar bucle de redirects
+    await deleteSession();
+    return null;
+  }
   return { session, admin };
+}
+
+/** Sesión válida solo si el admin sigue existiendo en la DB. */
+export async function getValidSession() {
+  const auth = await requireAdmin();
+  return auth?.session ?? null;
 }

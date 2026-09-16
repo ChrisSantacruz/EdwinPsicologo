@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getValidSession } from "@/lib/auth";
 
 export default async function HomePage() {
-  const session = await getSession();
+  const session = await getValidSession();
   redirect(session ? "/admin" : "/admin/login");
 }

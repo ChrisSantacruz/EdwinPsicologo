@@ -36,8 +36,11 @@ export const metadata: Metadata = {
     images: [{ url: "/brand-flyer.png" }],
   },
   icons: {
-    icon: [{ url: "/icons/icon.png", type: "image/png", sizes: "512x512" }],
-    apple: [{ url: "/icons/icon.png", sizes: "512x512" }],
+    icon: [
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+      { url: "/icons/icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "512x512" }],
   },
 };
 

@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getValidSession } from "@/lib/auth";
 import { LoginForm } from "./login-form";
 import { BrandMark } from "@/components/brand";
 import { BRAND } from "@/lib/brand";
 
 export default async function LoginPage() {
-  const session = await getSession();
+  const session = await getValidSession();
   if (session) redirect("/admin");
 
   return (
@@ -14,7 +14,7 @@ export default async function LoginPage() {
         <div className="hero-arc h-36" />
         <div className="relative z-10 -mt-10 space-y-6 px-6 pb-8 pt-2 sm:px-8">
           <div className="flex flex-col items-center text-center">
-            <BrandMark size={72} className="ring-4 ring-white" />
+            <BrandMark size={96} className="ring-4 ring-white" />
             <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-burgundy">
               {BRAND.tagline}
             </p>
