@@ -1,11 +1,10 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { getAppUrl } from "@/lib/app-url";
-import { sendDevicePush } from "@/lib/push";
 
 /**
- * Avisa a Edwin: queda en el historial del panel Y salta en el iPhone
- * (Web Push / PWA), aunque el panel esté cerrado.
+ * Avisa a Edwin: historial del panel + push al iPhone.
+ * Nunca debe tumbar confirmar cita / elegir pago.
  */
 export async function notifyEdwin(input: {
   title: string;
@@ -13,15 +12,20 @@ export async function notifyEdwin(input: {
   appointmentId?: string;
   tag?: string;
 }) {
-  await prisma.notification.create({
-    data: {
-      title: input.title,
-      body: input.body,
-      appointmentId: input.appointmentId,
-    },
-  });
+  try {
+    await prisma.notification.create({
+      data: {
+        title: input.title,
+        body: input.body,
+        appointmentId: input.appointmentId,
+      },
+    });
+  } catch (err) {
+    console.error("Notification create:", err);
+  }
 
   try {
+    const { sendDevicePush } = await import("@/lib/push");
     const url = input.appointmentId
       ? `${getAppUrl()}/admin/citas/${input.appointmentId}`
       : `${getAppUrl()}/admin`;

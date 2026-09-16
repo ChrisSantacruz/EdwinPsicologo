@@ -111,15 +111,19 @@ export function ConfirmAppointmentButton({
         onClick={() =>
           startTransition(async () => {
             setError(null);
-            const res = await action(note.trim() || undefined);
-            if (res?.error) {
-              setError(res.error);
-              return;
+            try {
+              const res = await action(note.trim() || undefined);
+              if (res?.error) {
+                setError(res.error);
+                return;
+              }
+              setDone({
+                whatsappSent: res.whatsappSent,
+                confirmWaUrl: res.confirmWaUrl,
+              });
+            } catch {
+              setError("No se pudo confirmar. Recarga la página e inténtalo de nuevo.");
             }
-            setDone({
-              whatsappSent: res.whatsappSent,
-              confirmWaUrl: res.confirmWaUrl,
-            });
           })
         }
       >

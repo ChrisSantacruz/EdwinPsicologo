@@ -171,7 +171,10 @@ export default async function AppointmentDetailPage({
             mode="nequi"
             amount={appointment.price}
             paymentRef={appointment.paymentRef}
-            action={async (note) => confirmAppointmentAction(appointment.id, note)}
+            action={async (note) => {
+              "use server";
+              return confirmAppointmentAction(appointment.id, note);
+            }}
           />
         </div>
       ) : null}
@@ -186,7 +189,10 @@ export default async function AppointmentDetailPage({
           <ConfirmAppointmentButton
             mode="efectivo"
             amount={appointment.price}
-            action={async (note) => confirmAppointmentAction(appointment.id, note)}
+            action={async (note) => {
+              "use server";
+              return confirmAppointmentAction(appointment.id, note);
+            }}
           />
         </div>
       ) : null}
