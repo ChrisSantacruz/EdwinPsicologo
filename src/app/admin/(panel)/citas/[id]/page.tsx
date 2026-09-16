@@ -75,7 +75,7 @@ export default async function AppointmentDetailPage({
 
       {updated ? (
         <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
-          Cita actualizada · mensaje y Calendar regenerados
+          Cita actualizada
         </p>
       ) : null}
 
@@ -101,7 +101,7 @@ export default async function AppointmentDetailPage({
           <DetailRow label="Nota de pago" value={appointment.paymentNote} />
         ) : null}
         <DetailRow
-          label="Google Calendar"
+          label="Agenda"
           value={appointment.googleEventId ? "En tu agenda" : "Pendiente"}
         />
       </div>
@@ -130,23 +130,32 @@ export default async function AppointmentDetailPage({
         <pre className="whitespace-pre-wrap rounded-2xl bg-canvas p-4 text-sm leading-relaxed text-ink">
           {message}
         </pre>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <a href={waPatient} target="_blank" rel="noreferrer" className="ios-btn ios-btn-primary">
-            Abrir en WhatsApp
-          </a>
-          <CopyButton text={message} />
-        </div>
         {waConfigured ? (
           <SendWhatsAppApiButton
             configured={waConfigured}
             action={sendAppointmentWhatsAppAction.bind(null, appointment.id)}
           />
         ) : null}
+        <div className="grid gap-2 sm:grid-cols-2">
+          <a
+            href={waPatient}
+            target="_blank"
+            rel="noreferrer"
+            className={waConfigured ? "ios-btn ios-btn-secondary" : "ios-btn ios-btn-primary"}
+          >
+            {waConfigured ? "Abrir en WhatsApp" : "Abrir en WhatsApp"}
+          </a>
+          <CopyButton text={message} label="Copiar mensaje" />
+        </div>
         <div className="rounded-2xl border border-line bg-white p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Link paciente</p>
-          <p className="mt-1 break-all text-sm text-burgundy">{confirmUrl}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Enlace para el paciente
+          </p>
+          <p className="mt-1 truncate text-sm text-burgundy" title={confirmUrl}>
+            {confirmUrl.replace(/^https?:\/\//, "")}
+          </p>
           <div className="mt-2">
-            <CopyButton text={confirmUrl} label="Copiar link" />
+            <CopyButton text={confirmUrl} label="Copiar enlace" />
           </div>
         </div>
       </div>

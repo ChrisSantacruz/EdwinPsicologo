@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import Link from "next/link";
 import { saveLocationAction, toggleLocationAction } from "@/app/actions";
 import { ToggleActiveButton } from "@/components/toggle-active-button";
 
@@ -8,7 +9,10 @@ export default async function SedesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-3xl font-semibold text-ink">Sedes</h2>
+        <Link href="/admin/ajustes" className="text-sm font-medium text-burgundy">
+          ← Ajustes
+        </Link>
+        <h2 className="mt-2 font-display text-3xl font-semibold text-ink">Sedes</h2>
         <p className="mt-1 text-sm text-muted">Direcciones del mensaje de confirmación</p>
       </div>
 

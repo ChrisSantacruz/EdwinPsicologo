@@ -1,9 +1,5 @@
 import Link from "next/link";
-import {
-  getGoogleAuthUrl,
-  getGoogleRedirectUri,
-  isGoogleConnected,
-} from "@/lib/calendar";
+import { getGoogleAuthUrl, isGoogleConnected } from "@/lib/calendar";
 import { PRACTICE } from "@/lib/constants";
 import { formatPhoneDisplay } from "@/lib/format";
 import { isWhatsAppBotConfigured, isWhatsAppConfigured } from "@/lib/whatsapp";
@@ -19,7 +15,6 @@ export default async function AjustesPage({
   const googleReady = Boolean(
     process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim(),
   );
-  const redirectUri = getGoogleRedirectUri();
   const waReady = isWhatsAppConfigured();
   const botReady = isWhatsAppBotConfigured();
 
@@ -27,7 +22,7 @@ export default async function AjustesPage({
     <div className="mx-auto max-w-xl space-y-6">
       <div>
         <h2 className="font-display text-3xl font-semibold text-ink">Ajustes</h2>
-        <p className="mt-1 text-sm text-muted">Conecta tu agenda y tu WhatsApp</p>
+        <p className="mt-1 text-sm text-muted">Tu consultorio, Calendar y WhatsApp</p>
       </div>
 
       {google === "connected" ? (
@@ -37,9 +32,8 @@ export default async function AjustesPage({
       ) : null}
       {google === "error" ? (
         <p className="rounded-2xl bg-burgundy/10 px-4 py-3 text-sm font-medium text-burgundy">
-          No se pudo conectar Calendar. En Google Cloud, en tu cliente OAuth, agrega exactamente
-          esta dirección de redirección:
-          <code className="mt-2 block break-all rounded-xl bg-white px-3 py-2 text-xs">{redirectUri}</code>
+          No se pudo conectar Calendar. Cierra la ventana de Google e inténtalo de nuevo. Si
+          sigue fallando, escribe a quien te instaló el sistema.
         </p>
       ) : null}
 
@@ -53,7 +47,7 @@ export default async function AjustesPage({
       <div className="ios-card space-y-4 p-5">
         <h3 className="font-semibold text-ink">WhatsApp</h3>
         <p className="text-sm text-muted">
-          Vincula el celular desde el panel, sin entrar a páginas técnicas.
+          Vincula tu celular una vez. Después puedes enviar invitaciones desde cada cita.
         </p>
         {waReady || botReady ? (
           <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
@@ -77,26 +71,30 @@ export default async function AjustesPage({
 
         {!googleReady ? (
           <p className="rounded-2xl bg-canvas px-4 py-3 text-sm text-muted">
-            Falta configurar Google en el hosting. Pide ayuda a quien te instaló el sistema.
+            Calendar aún no está disponible. Pide ayuda a quien te instaló el sistema.
           </p>
         ) : calendarOk ? (
           <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
             Calendar conectado
           </p>
         ) : authUrl ? (
-          <div className="space-y-3">
-            <a href={authUrl} className="ios-btn ios-btn-primary w-full">
-              Conectar mi Google Calendar
-            </a>
-            <p className="text-xs leading-relaxed text-muted">
-              Si Google dice que la solicitud no es válida, agrega esta URL en la consola de Google
-              (URI de redirección):
-              <code className="mt-1 block break-all rounded-xl bg-canvas px-3 py-2 text-burgundy">
-                {redirectUri}
-              </code>
-            </p>
-          </div>
+          <a href={authUrl} className="ios-btn ios-btn-primary w-full">
+            Conectar mi Google Calendar
+          </a>
         ) : null}
+      </div>
+
+      <div className="ios-card space-y-3 p-5">
+        <h3 className="font-semibold text-ink">Consultorio y catálogo</h3>
+        <p className="text-sm text-muted">Sedes, tipos de consulta y precios.</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Link href="/admin/sedes" className="ios-btn ios-btn-secondary w-full">
+            Sedes
+          </Link>
+          <Link href="/admin/servicios" className="ios-btn ios-btn-secondary w-full">
+            Servicios
+          </Link>
+        </div>
       </div>
 
       <div className="ios-card space-y-3 p-5">
@@ -105,6 +103,14 @@ export default async function AjustesPage({
           En el iPhone: Safari → Compartir → Agregar a pantalla de inicio. Abre la app desde el
           ícono y activa las alertas. Así te llegan aunque cierres el panel.
         </p>
+      </div>
+
+      <div className="ios-card space-y-3 p-5">
+        <h3 className="font-semibold text-ink">Ayuda</h3>
+        <p className="text-sm text-muted">Guía corta del día a día.</p>
+        <Link href="/manual" className="ios-btn ios-btn-secondary w-full">
+          Cómo usar tu agenda
+        </Link>
       </div>
 
       <Link href="/admin" className="ios-btn ios-btn-secondary w-full">

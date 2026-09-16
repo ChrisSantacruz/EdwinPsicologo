@@ -125,8 +125,7 @@ export function PatientPaymentChooser({
         </div>
 
         <p className="rounded-2xl bg-burgundy/[0.06] px-4 py-3 text-sm leading-relaxed text-burgundy">
-          Hasta que envíes el pantallazo al chat de Edwin, él no podrá confirmar tu cita. Confío en
-          que lo harás con transparencia: este espacio se construye con honestidad y cuidado.
+          Envía el pantallazo por WhatsApp para que Edwin pueda confirmar tu cita.
         </p>
 
         <ol className="space-y-3 text-left text-sm text-muted">

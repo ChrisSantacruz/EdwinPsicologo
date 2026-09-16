@@ -26,9 +26,9 @@ export default async function NewAppointmentPage({
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-ink">Nueva cita</h2>
+        <h2 className="font-display text-3xl font-semibold text-ink">Nueva cita</h2>
         <p className="mt-1 text-sm text-muted">
-          Genera el mensaje, el link del paciente y el evento en Google Calendar
+          Prepara el mensaje y el enlace de confirmación para tu paciente
         </p>
       </div>
 

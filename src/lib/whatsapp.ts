@@ -57,11 +57,14 @@ async function sendViaBot(toPhone: string, body: string): Promise<SendResult> {
   if (!res.ok || !data.ok) {
     const hint =
       data.error === "whatsapp_not_connected"
-        ? " El bot no tiene WhatsApp vinculado: abre /qr en Render."
+        ? " WhatsApp no está vinculado: abre WhatsApp en el panel y vuelve a escanear el código."
         : "";
     return {
       ok: false,
-      error: `${data.error ?? `Error HTTP ${res.status}`}.${hint}`,
+      error:
+        data.error === "whatsapp_not_connected"
+          ? `No se pudo enviar.${hint}`
+          : `No se pudo enviar el mensaje. Intenta de nuevo o usa Abrir en WhatsApp.${hint}`,
       mode: "none",
     };
   }
@@ -81,7 +84,7 @@ export async function sendWhatsAppText(
     return {
       ok: false,
       error:
-        "WhatsApp no configurado. Define WHATSAPP_BOT_URL + WHATSAPP_BOT_SECRET (Render) o Meta Cloud API.",
+        "WhatsApp no está listo. Abre WhatsApp en el panel, vincula tu celular y vuelve a intentar.",
       mode: "none",
     };
   }
@@ -136,7 +139,7 @@ export async function sendWhatsAppTemplate(input: {
   if (!isWhatsAppCloudConfigured()) {
     return {
       ok: false,
-      error: "WhatsApp Cloud API no configurado.",
+      error: "WhatsApp no está listo. Vincula tu celular desde el panel.",
       mode: "none",
     };
   }
@@ -236,7 +239,7 @@ export async function sendAppointmentWhatsApp(input: {
     if (templateResult.ok) return templateResult;
     return {
       ok: false,
-      error: `Texto: ${textResult.error} | Plantilla: ${templateResult.error}`,
+      error: "No se pudo enviar el mensaje. Prueba Abrir en WhatsApp.",
       mode: "none",
     };
   }

@@ -78,15 +78,22 @@ export function NotificationWatcher() {
   const router = useRouter();
   const [permission, setPermission] = useState<NotificationPermission>("default");
   const [pushReady, setPushReady] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const knownIds = useRef(new Set<string>());
   const ready = useRef(false);
 
   useEffect(() => {
     if (!canNotify()) return;
     setPermission(Notification.permission);
+    try {
+      if (sessionStorage.getItem("edwin_notif_banner_dismissed") === "1") {
+        setDismissed(true);
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
-  // Si ya hay permiso, registrar Push al dispositivo (iPhone PWA)
   useEffect(() => {
     if (permission !== "granted") return;
     let cancelled = false;
@@ -138,7 +145,6 @@ export function NotificationWatcher() {
         const fresh = data.items.filter((item) => !knownIds.current.has(item.id));
         for (const item of fresh) {
           knownIds.current.add(item.id);
-          // Fallback local solo si el panel está abierto; el Push real llega al iPhone vía SW
           if (canNotify() && Notification.permission === "granted" && !pushReady) {
             try {
               const n = new Notification(item.title, {
@@ -202,52 +208,56 @@ export function NotificationWatcher() {
     }
   }
 
-  if (permission === "granted" && pushReady) return null;
-  if (permission === "granted" && !pushReady) {
-    // Ya dio permiso; reintentar registro Push
-    return (
-      <div className="mx-auto max-w-5xl px-4 pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-burgundy/15 bg-gradient-to-r from-burgundy/[0.07] to-white px-4 py-3 shadow-sm">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-ink">Casi listo · aviso en el iPhone</p>
-            <p className="text-xs leading-relaxed text-muted">
-              Toca otra vez para registrar las alertas en tu teléfono (aunque cierres la app).
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void enable()}
-            className="ios-btn ios-btn-primary shrink-0 text-sm"
-          >
-            Registrar en el iPhone
-          </button>
-        </div>
-      </div>
-    );
+  function dismiss() {
+    setDismissed(true);
+    try {
+      sessionStorage.setItem("edwin_notif_banner_dismissed", "1");
+    } catch {
+      // ignore
+    }
   }
 
+  if (dismissed) return null;
+  if (permission === "granted" && pushReady) return null;
+
   const iosHint = isIos() && !isStandalone();
+  const title =
+    permission === "granted" && !pushReady
+      ? "Casi listo · avisos en tu celular"
+      : "Alertas en tu celular";
+  const body =
+    permission === "granted" && !pushReady
+      ? "Toca para registrar las alertas en este dispositivo (aunque cierres la app)."
+      : iosHint
+        ? "En Safari: Compartir → Agregar a pantalla de inicio. Abre la app desde el ícono y activa las alertas."
+        : "Actívalas para que te avise cuando un paciente pague o falte confirmar.";
 
   return (
     <div className="mx-auto max-w-5xl px-4 pt-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-burgundy/15 bg-gradient-to-r from-burgundy/[0.07] to-white px-4 py-3 shadow-sm">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink">Alertas en tu iPhone</p>
-          <p className="text-xs leading-relaxed text-muted">
-            {iosHint
-              ? "En Safari: Compartir → Agregar a pantalla de inicio. Abre la app desde el ícono y activa las alertas. Así te llegan aunque no estés en el panel."
-              : "Actívalas para que te avise en el teléfono cuando un paciente pague o falte confirmar."}
-          </p>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-ink">{title}</p>
+          <p className="text-xs leading-relaxed text-muted">{body}</p>
         </div>
-        {canNotify() ? (
+        <div className="flex shrink-0 items-center gap-2">
+          {canNotify() ? (
+            <button
+              type="button"
+              onClick={() => void enable()}
+              className="ios-btn ios-btn-primary text-sm"
+            >
+              {permission === "granted" ? "Registrar alertas" : "Activar alertas"}
+            </button>
+          ) : null}
           <button
             type="button"
-            onClick={() => void enable()}
-            className="ios-btn ios-btn-primary shrink-0 text-sm"
+            onClick={dismiss}
+            className="ios-btn ios-btn-ghost text-sm"
+            aria-label="Cerrar"
           >
-            Activar alertas
+            Ahora no
           </button>
-        ) : null}
+        </div>
       </div>
     </div>
   );

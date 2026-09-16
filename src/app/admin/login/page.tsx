@@ -18,9 +18,9 @@ export default async function LoginPage() {
             <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-burgundy">
               {BRAND.tagline}
             </p>
-            <h1 className="mt-2 font-display text-3xl font-semibold text-ink">Panel de Edwin</h1>
+            <h1 className="mt-2 font-display text-3xl font-semibold text-ink">Tu agenda</h1>
             <p className="mt-2 max-w-xs text-sm text-muted">
-              Gestiona citas, contactos y confirmaciones con estilo profesional.
+              Citas, pacientes y confirmaciones en un solo lugar.
             </p>
           </div>
           <LoginForm />

@@ -23,9 +23,9 @@ export function LoginForm() {
           className="ios-input"
           type="email"
           name="email"
-          defaultValue="edwin@mideros.ps"
           required
           autoComplete="username"
+          placeholder="Tu correo"
         />
       </label>
       <label className="block space-y-1.5">

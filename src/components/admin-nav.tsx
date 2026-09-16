@@ -6,11 +6,7 @@ const links = [
   { href: "/admin", label: "Agenda" },
   { href: "/admin/citas/nueva", label: "Nueva cita" },
   { href: "/admin/contactos", label: "Contactos" },
-  { href: "/admin/sedes", label: "Sedes" },
-  { href: "/admin/servicios", label: "Servicios" },
-  { href: "/admin/whatsapp", label: "WhatsApp" },
   { href: "/admin/ajustes", label: "Ajustes" },
-  { href: "/manual", label: "Ayuda" },
 ];
 
 export function AdminNav({ name, unread = 0 }: { name: string; unread?: number }) {

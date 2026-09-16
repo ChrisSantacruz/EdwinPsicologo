@@ -42,13 +42,14 @@ export default function ManualPage() {
           <p className="mt-1">
             En <strong>Ajustes</strong> conectas tu Google Calendar. En{" "}
             <strong>WhatsApp</strong> vinculas el celular escaneando el código desde esta misma
-            página web (no necesitas entrar a Render).
+            página.
           </p>
         </section>
         <section>
-          <h2 className="font-semibold text-ink">5. En el celular</h2>
+          <h2 className="font-semibold text-ink">5. Alertas en el celular</h2>
           <p className="mt-1">
-            En Safari o Chrome: “Agregar a pantalla de inicio” para abrir tu agenda como una app.
+            En Safari: Compartir → Agregar a pantalla de inicio. Abre la app desde el ícono y
+            activa las alertas para que te avise cuando un paciente confirme.
           </p>
         </section>
       </div>

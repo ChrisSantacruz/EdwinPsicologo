@@ -57,7 +57,9 @@ export function WhatsAppConnectPanel() {
 
       {connected ? (
         <div className="ios-card space-y-3 p-6 text-center">
-          <p className="text-4xl">✅</p>
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/10 text-success">
+            <span className="text-2xl font-semibold">✓</span>
+          </div>
           <h3 className="font-display text-2xl font-semibold text-ink">WhatsApp conectado</h3>
           <p className="text-sm text-muted">
             Ya puedes enviar mensajes a tus pacientes desde cada cita. Si cierras la sesión en el
@@ -87,7 +89,7 @@ export function WhatsAppConnectPanel() {
             ) : (
               <p className="px-4 text-center text-sm text-muted">
                 {status?.error ??
-                  "Preparando el código… Si tarda, espera unos segundos o pide reiniciar el servicio de WhatsApp."}
+                  "Preparando el código… Si tarda unos segundos, espera o vuelve a entrar a esta página."}
               </p>
             )}
           </div>

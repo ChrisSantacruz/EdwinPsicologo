@@ -15,7 +15,7 @@ export default async function AdminDashboardPage() {
   const tomorrowEnd = endOfBogotaDay(addDays(now, 1));
   const waReady = isWhatsAppConfigured();
 
-  const [appointments, todayAppts, tomorrowAppts, awaitingCount, notifications] =
+  const [appointments, todayAppts, tomorrowAppts, awaitingCount, pendingCount, confirmedCount, notifications] =
     await Promise.all([
       prisma.appointment.findMany({
         include: { service: true, location: true },
@@ -41,6 +41,12 @@ export default async function AdminDashboardPage() {
       prisma.appointment.count({
         where: { status: { in: ["AWAITING_PROOF", "AWAITING_EDWIN"] } },
       }),
+      prisma.appointment.count({
+        where: { status: "PENDING_PATIENT" },
+      }),
+      prisma.appointment.count({
+        where: { status: "CONFIRMED" },
+      }),
       prisma.notification.findMany({
         where: { read: false },
         orderBy: { createdAt: "desc" },
@@ -48,8 +54,8 @@ export default async function AdminDashboardPage() {
       }),
     ]);
 
-  const pending = appointments.filter((a) => a.status === "PENDING_PATIENT").length;
-  const confirmed = appointments.filter((a) => a.status === "CONFIRMED").length;
+  const pending = pendingCount;
+  const confirmed = confirmedCount;
 
   return (
     <div className="space-y-6">
@@ -57,8 +63,8 @@ export default async function AdminDashboardPage() {
         <div>
           <h2 className="font-display text-3xl font-semibold text-ink">Agenda</h2>
           <p className="mt-1 text-sm text-muted">
-            Hoy y mañana · recordatorios en Google Calendar
-            {waReady ? " · WhatsApp listo para enviar" : " · WhatsApp: Abrir en app"}
+            Hoy y mañana
+            {waReady ? " · WhatsApp listo" : " · WhatsApp: abrir desde cada cita"}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

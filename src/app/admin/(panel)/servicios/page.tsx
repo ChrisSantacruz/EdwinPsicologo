@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import Link from "next/link";
 import { saveServiceAction, toggleServiceAction } from "@/app/actions";
 import { formatMoney } from "@/lib/format";
 import { ToggleActiveButton } from "@/components/toggle-active-button";
@@ -9,7 +10,10 @@ export default async function ServiciosPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-3xl font-semibold text-ink">Servicios</h2>
+        <Link href="/admin/ajustes" className="text-sm font-medium text-burgundy">
+          ← Ajustes
+        </Link>
+        <h2 className="mt-2 font-display text-3xl font-semibold text-ink">Servicios</h2>
         <p className="mt-1 text-sm text-muted">Tipos de consulta y precio por defecto</p>
       </div>
 
@@ -31,7 +35,7 @@ export default async function ServiciosPage() {
             className="ios-input"
             type="number"
             name="sortOrder"
-            placeholder="Orden"
+            placeholder="Orden en la lista"
             defaultValue={services.length + 1}
           />
           <button type="submit" className="ios-btn ios-btn-primary w-full">
