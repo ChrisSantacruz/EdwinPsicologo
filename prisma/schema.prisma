@@ -111,3 +111,14 @@ model GoogleToken {
   expiryDate   DateTime?
   updatedAt    DateTime  @updatedAt
 }
+
+// Suscripciones Web Push (iPhone PWA / Android)
+model PushSubscription {
+  id        String   @id @default(cuid()) @map("_id")
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

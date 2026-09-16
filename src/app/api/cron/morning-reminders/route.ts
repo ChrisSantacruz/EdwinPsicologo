@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { endOfBogotaDay, formatBogota, startOfBogotaDay } from "@/lib/time";
 import { formatAppointmentTime } from "@/lib/format";
+import { notifyEdwin } from "@/lib/notify-edwin";
 
 /**
  * Recordatorio 7:00 America/Bogota (= 12:00 UTC).
- * Vercel Cron llama este endpoint cada día.
+ * Vercel Cron llama este endpoint cada día → aviso al iPhone.
  */
 export async function GET(request: Request) {
   const auth = request.headers.get("authorization");
@@ -32,7 +33,6 @@ export async function GET(request: Request) {
     const title = `Hoy · ${appt.patientName}`;
     const body = `${appt.service.name} · ${formatAppointmentTime(appt.scheduledAt)} · ${appt.location.name}`;
 
-    // Evita duplicar el mismo recordatorio matutino el mismo día
     const already = await prisma.notification.findFirst({
       where: {
         appointmentId: appt.id,
@@ -42,12 +42,11 @@ export async function GET(request: Request) {
     });
     if (already) continue;
 
-    await prisma.notification.create({
-      data: {
-        title,
-        body: `${body}. Recuerda preparar el espacio con calma.`,
-        appointmentId: appt.id,
-      },
+    await notifyEdwin({
+      title,
+      body: `${body}. Recuerda preparar el espacio con calma.`,
+      appointmentId: appt.id,
+      tag: `morning-${appt.id}`,
     });
     created += 1;
   }

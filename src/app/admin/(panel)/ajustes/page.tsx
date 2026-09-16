@@ -102,8 +102,8 @@ export default async function AjustesPage({
       <div className="ios-card space-y-3 p-5">
         <h3 className="font-semibold text-ink">Notificaciones en el celular</h3>
         <p className="text-sm text-muted">
-          Con el panel abierto, el navegador puede avisarte cuando un paciente confirma. Activa el
-          permiso si te aparece el banner arriba.
+          En el iPhone: Safari → Compartir → Agregar a pantalla de inicio. Abre la app desde el
+          ícono y activa las alertas. Así te llegan aunque cierres el panel.
         </p>
       </div>
 

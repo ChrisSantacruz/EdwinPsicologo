@@ -5,7 +5,10 @@ import { getAppUrl } from "./app-url";
 import { TZ } from "./time";
 
 function getRedirectUri() {
-  // Siempre el dominio público actual — evita redirect_uri_mismatch
+  // Prioriza GOOGLE_REDIRECT_URI (exacta en Google Cloud) para evitar redirect_uri_mismatch
+  // aunque APP_URL venga vacío en Vercel.
+  const explicit = process.env.GOOGLE_REDIRECT_URI?.trim();
+  if (explicit) return explicit.replace(/\/$/, "");
   return `${getAppUrl()}/api/google/callback`;
 }
 

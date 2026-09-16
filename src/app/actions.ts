@@ -28,19 +28,7 @@ import {
   createPaymentRef,
 } from "@/lib/appointment-token";
 
-async function notifyEdwin(input: {
-  title: string;
-  body: string;
-  appointmentId?: string;
-}) {
-  await prisma.notification.create({
-    data: {
-      title: input.title,
-      body: input.body,
-      appointmentId: input.appointmentId,
-    },
-  });
-}
+import { notifyEdwin } from "@/lib/notify-edwin";
 
 async function syncCalendar(appt: {
   id: string;

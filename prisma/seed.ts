@@ -16,6 +16,15 @@ async function main() {
     create: { email, name, passwordHash },
   });
 
+  // Quitar admins de prueba (solo queda Edwin)
+  await prisma.admin.deleteMany({
+    where: { email: { not: email } },
+  });
+
+  // Calendar y push deben reconectarse con la cuenta/dispositivo de Edwin
+  await prisma.googleToken.deleteMany({});
+  await prisma.pushSubscription.deleteMany({});
+
   const locations = [
     {
       name: "Mariluz 1",
