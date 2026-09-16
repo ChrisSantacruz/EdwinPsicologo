@@ -144,32 +144,30 @@ export function buildEdwinPatientAlertMessage(input: {
   paymentMethod: string;
   scheduledAt: Date;
   serviceName: string;
-  adminUrl?: string;
-  calendarUrl?: string;
   address?: string;
   price?: number;
   patientPhone?: string;
 }) {
   const day = formatAppointmentDate(input.scheduledAt);
   const time = formatAppointmentTime(input.scheduledAt);
+  const first = input.patientName.split(" ")[0];
   const method =
     input.paymentMethod === "EFECTIVO"
-      ? "Efectivo — cita confirmada"
-      : "Nequi — pendiente de comprobante";
+      ? "confirmó en efectivo"
+      : "eligió Nequi y enviará el comprobante";
 
-  let msg = `Nueva confirmación
+  let msg = `Hola 🌿
 
-👤 ${input.patientName}${input.patientPhone ? `\n📱 ${formatPhoneDisplay(input.patientPhone)}` : ""}
+${first} ${method}.
+
 🩺 ${input.serviceName}
 🗓️ ${day}
-⏰ ${time}
-💳 ${method}`;
+⏰ ${time}`;
 
   if (input.address) msg += `\n📍 ${input.address}`;
-  if (input.price) msg += `\n💰 ${formatMoney(input.price)}`;
-  if (input.calendarUrl) msg += `\n\nCalendar:\n${input.calendarUrl}`;
-  if (input.adminUrl) msg += `\n\nVer cita:\n${input.adminUrl}`;
+  if (input.patientPhone) msg += `\n📱 ${formatPhoneDisplay(input.patientPhone)}`;
 
+  msg += `\n\nYa quedó en tu agenda. ¡Buen trabajo acompañando!`;
   return msg;
 }
 
@@ -184,18 +182,50 @@ export function buildPatientToEdwinConfirmMessage(input: {
   const time = formatAppointmentTime(input.scheduledAt);
   const method =
     input.paymentMethod === "EFECTIVO"
-      ? "Efectivo"
-      : "Nequi (envío el comprobante)";
+      ? "efectivo"
+      : "Nequi (te envío el comprobante)";
 
   return `Hola ${PRACTICE.professionalName.split(" ")[0]}, confirmo mi cita 🤍
 
-👤 ${input.patientName}
+Soy ${input.patientName}.
 🩺 ${input.serviceName}
 🗓️ ${day}
 ⏰ ${time}
 💳 ${method}${input.address ? `\n📍 ${input.address}` : ""}
 
-¡Mil gracias!`;
+¡Mil gracias por tu acompañamiento!`;
+}
+
+/** Link Calendar para el PACIENTE — solo datos cálidos, sin panel ni pagos. */
+export function buildPatientGoogleCalendarUrl(input: {
+  patientName: string;
+  scheduledAt: Date;
+  serviceName: string;
+  address: string;
+  neighborhood: string;
+}) {
+  const first = input.patientName.split(" ")[0];
+  const day = formatAppointmentDate(input.scheduledAt);
+  const time = formatAppointmentTime(input.scheduledAt);
+
+  return buildGoogleCalendarUrl({
+    title: `Cita con ${PRACTICE.professionalName}`,
+    start: input.scheduledAt,
+    location: `${input.address}, ${input.neighborhood}`,
+    details: [
+      `Hola ${first} 🌿`,
+      ``,
+      `Tu espacio de cuidado con ${PRACTICE.professionalName}.`,
+      ``,
+      `🩺 ${input.serviceName}`,
+      `🗓️ ${day}`,
+      `⏰ ${time}`,
+      `📍 ${input.address}`,
+      ``,
+      `Te espero con calma. Si necesitas algo, escríbeme por WhatsApp.`,
+      `— ${PRACTICE.professionalName}`,
+    ].join("\n"),
+  });
 }
 
 export function buildGoogleCalendarUrl(input: {

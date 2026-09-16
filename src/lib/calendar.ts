@@ -116,16 +116,19 @@ export async function upsertCalendarEvent(appt: CalendarAppointment) {
   const start = new Date(appt.scheduledAt);
   const end = new Date(start.getTime() + 60 * 60 * 1000);
 
-  const summary = `${appt.status === "CONFIRMED" ? "✅" : "⏳"} ${appt.serviceName} — ${appt.patientName}`;
+  const summary =
+    appt.status === "CONFIRMED"
+      ? `Cita · ${appt.patientName}`
+      : `Por confirmar · ${appt.patientName}`;
+
   const description = [
-    `Paciente: ${appt.patientName}`,
-    `Teléfono: ${appt.patientPhone}`,
-    `Servicio: ${appt.serviceName}`,
-    `Inversión: $${appt.price.toLocaleString("es-CO")}`,
-    `Estado: ${appt.status}`,
-    `Dirección: ${appt.address}`,
-    `Barrio: ${appt.neighborhood}`,
-    `Profesional: ${PRACTICE.professionalName}`,
+    `${appt.serviceName} con ${appt.patientName}.`,
+    ``,
+    `📱 ${appt.patientPhone}`,
+    `📍 ${appt.address}`,
+    `🏙️ ${appt.neighborhood}`,
+    ``,
+    `Un espacio de acompañamiento. Prepárate con calma.`,
   ].join("\n");
 
   const body = {

@@ -9,7 +9,7 @@ import { createSession, deleteSession, requireAdmin } from "@/lib/auth";
 import {
   buildConfirmationMessage,
   buildEdwinPatientAlertMessage,
-  buildGoogleCalendarUrl,
+  buildPatientGoogleCalendarUrl,
   buildPatientToEdwinConfirmMessage,
   formatAppointmentDate,
   formatAppointmentTime,
@@ -291,53 +291,32 @@ export async function confirmNequiAction(appointmentId: string) {
 
   await syncCalendar(updated);
 
-  const appUrl = getAppUrl();
-  const adminUrl = `${appUrl}/admin/citas/${updated.id}`;
-  const calendarUrl = buildGoogleCalendarUrl({
-    title: `${updated.service.name} — ${updated.patientName}`,
-    start: updated.scheduledAt,
-    location: `${updated.location.address}, ${updated.location.neighborhood}`,
-    details: [
-      `Paciente: ${updated.patientName}`,
-      `Teléfono: ${updated.patientPhone}`,
-      `Servicio: ${updated.service.name}`,
-      `Inversión: ${formatMoney(updated.price)}`,
-      `Pago: NEQUI confirmado`,
-      `Panel: ${adminUrl}`,
-    ].join("\n"),
-  });
+  const botFinal = `Hola 🌿
 
-  const botFinal = `🤖 BOT · Pago Nequi confirmado
+Confirmaste el Nequi de ${updated.patientName}.
 
-Paciente: ${updated.patientName}
-WhatsApp: ${updated.patientPhone}
 🩺 ${updated.service.name}
 🗓️ ${formatAppointmentDate(updated.scheduledAt)}
 ⏰ ${formatAppointmentTime(updated.scheduledAt)}
-💳 Nequi — confirmado por Edwin
 📍 ${updated.location.address}
 💰 ${formatMoney(updated.price)}
 
-📅 Google Calendar:
-${calendarUrl}
-
-🖥️ Panel:
-${adminUrl}`;
+La cita ya quedó confirmada en tu agenda.`;
 
   if (isWhatsAppConfigured()) {
     await sendWhatsAppText(PRACTICE.phone, botFinal);
   }
 
   await notifyEdwin({
-    title: `✅ Nequi confirmado · ${updated.patientName}`,
-    body: `${updated.service.name} · ${formatAppointmentDate(updated.scheduledAt)} ${formatAppointmentTime(updated.scheduledAt)}`,
+    title: `${updated.patientName} — Nequi listo`,
+    body: `${updated.service.name} · ${formatAppointmentDate(updated.scheduledAt)} · ${formatAppointmentTime(updated.scheduledAt)}`,
     appointmentId: updated.id,
   });
 
   revalidatePath("/admin");
   revalidatePath(`/admin/citas/${appointmentId}`);
   revalidatePath(appointmentPublicPath(appointment.token));
-  return { ok: true, calendarUrl };
+  return { ok: true };
 }
 
 export async function cancelAppointmentAction(appointmentId: string) {
@@ -374,9 +353,6 @@ export async function patientChoosePaymentAction(
     return { error: "Esta cita ya está confirmada" };
   }
 
-  const appUrl = getAppUrl();
-  const adminUrl = `${appUrl}/admin/citas/${appointment.id}`;
-
   async function buildAlerts(updated: {
     id: string;
     patientName: string;
@@ -387,19 +363,12 @@ export async function patientChoosePaymentAction(
     service: { name: string };
     location: { address: string; neighborhood: string };
   }) {
-    const calendarUrl = buildGoogleCalendarUrl({
-      title: `${updated.service.name} — ${updated.patientName}`,
-      start: updated.scheduledAt,
-      location: `${updated.location.address}, ${updated.location.neighborhood}`,
-      details: [
-        `Paciente: ${updated.patientName}`,
-        `Teléfono: ${updated.patientPhone}`,
-        `Servicio: ${updated.service.name}`,
-        `Inversión: ${formatMoney(updated.price)}`,
-        `Pago: ${updated.paymentMethod ?? method}`,
-        `Panel: ${adminUrl}`,
-        `Profesional: ${PRACTICE.professionalName}`,
-      ].join("\n"),
+    const calendarUrl = buildPatientGoogleCalendarUrl({
+      patientName: updated.patientName,
+      scheduledAt: updated.scheduledAt,
+      serviceName: updated.service.name,
+      address: updated.location.address,
+      neighborhood: updated.location.neighborhood,
     });
 
     const botMessage = buildEdwinPatientAlertMessage({
@@ -409,9 +378,6 @@ export async function patientChoosePaymentAction(
       scheduledAt: updated.scheduledAt,
       serviceName: updated.service.name,
       address: updated.location.address,
-      price: updated.price,
-      adminUrl,
-      calendarUrl,
     });
 
     const patientMessage = buildPatientToEdwinConfirmMessage({
@@ -427,18 +393,14 @@ export async function patientChoosePaymentAction(
       const send = await sendWhatsAppText(PRACTICE.phone, botMessage);
       botSent = send.ok;
       if (!send.ok) {
-        console.error("Bot WhatsApp a Edwin falló:", send.error);
+        console.error("Aviso WhatsApp a Edwin falló:", send.error);
       }
     }
 
     return {
       calendarUrl,
-      botMessage,
       botSent,
-      patientConfirmMessage: patientMessage,
       patientConfirmWaUrl: whatsappLink(PRACTICE.phone, patientMessage),
-      edwinPhone: PRACTICE.phone,
-      adminUrl,
     };
   }
 
@@ -458,8 +420,8 @@ export async function patientChoosePaymentAction(
     const alerts = await buildAlerts(updated);
 
     await notifyEdwin({
-      title: `✅ ${updated.patientName} confirmó (efectivo)`,
-      body: `${updated.service.name} · ${formatAppointmentDate(updated.scheduledAt)} ${formatAppointmentTime(updated.scheduledAt)} · Calendar: ${alerts.calendarUrl}`,
+      title: `${updated.patientName} confirmó su cita`,
+      body: `${updated.service.name} · ${formatAppointmentDate(updated.scheduledAt)} · ${formatAppointmentTime(updated.scheduledAt)} · efectivo`,
       appointmentId: updated.id,
     });
 
@@ -485,8 +447,8 @@ export async function patientChoosePaymentAction(
   const alerts = await buildAlerts(updated);
 
   await notifyEdwin({
-    title: `💳 ${updated.patientName} eligió Nequi`,
-    body: `${updated.service.name} · ${formatAppointmentDate(updated.scheduledAt)} ${formatAppointmentTime(updated.scheduledAt)} · espera comprobante`,
+    title: `${updated.patientName} eligió Nequi`,
+    body: `${updated.service.name} · ${formatAppointmentDate(updated.scheduledAt)} · ${formatAppointmentTime(updated.scheduledAt)} · espera el comprobante`,
     appointmentId: updated.id,
   });
 
@@ -673,8 +635,8 @@ export async function sendAppointmentWhatsAppAction(appointmentId: string) {
   if (!result.ok) return { error: result.error };
 
   await notifyEdwin({
-    title: "WhatsApp enviado al paciente",
-    body: `${appointment.patientName} · modo ${result.mode ?? "api"}`,
+    title: `Mensaje enviado a ${appointment.patientName}`,
+    body: `${appointment.service.name} · ${formatAppointmentDate(appointment.scheduledAt)}`,
     appointmentId: appointment.id,
   });
 

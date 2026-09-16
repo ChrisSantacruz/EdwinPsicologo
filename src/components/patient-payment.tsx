@@ -9,7 +9,6 @@ type ConfirmExtras = {
   patientConfirmWaUrl?: string;
   calendarUrl?: string;
   botSent?: boolean;
-  adminUrl?: string;
 };
 
 export function PatientPaymentChooser({
@@ -39,7 +38,6 @@ export function PatientPaymentChooser({
         patientConfirmWaUrl: res.patientConfirmWaUrl,
         calendarUrl: res.calendarUrl,
         botSent: res.botSent,
-        adminUrl: res.adminUrl,
       });
     }
   }
@@ -49,7 +47,7 @@ export function PatientPaymentChooser({
       extras.patientConfirmWaUrl ??
       whatsappLink(
         practicePhone,
-        `✅ Hola Edwin, confirmo mi cita. Quedo atento/a. ¡Mil gracias!`,
+        `Hola, confirmo mi cita. ¡Mil gracias!`,
       );
 
     return (
@@ -62,13 +60,13 @@ export function PatientPaymentChooser({
           <div className="mx-auto mt-2 h-px w-14 bg-gradient-to-r from-transparent via-gold to-transparent" />
         </div>
         <p className="text-sm leading-relaxed text-muted">
-          Tu asistencia quedó registrada. Edwin ya ve la alerta en su panel
-          {extras.botSent ? " y recibió el aviso del bot" : ""}.
+          Tu espacio ya quedó reservado. Te esperamos con calma.
+          {extras.botSent ? " Edwin también recibió el aviso." : ""}
         </p>
 
         <a href={wa} target="_blank" rel="noreferrer" className="ios-btn ios-btn-primary w-full gap-2">
           <IconWhatsApp className="h-5 w-5" />
-          Avisar a Edwin por WhatsApp
+          Escribir por WhatsApp
         </a>
 
         {extras.calendarUrl ? (
@@ -78,7 +76,7 @@ export function PatientPaymentChooser({
             rel="noreferrer"
             className="ios-btn ios-btn-secondary w-full"
           >
-            Agregar a Google Calendar
+            Guardar en mi Calendar
           </a>
         ) : null}
       </div>
@@ -90,7 +88,7 @@ export function PatientPaymentChooser({
       extras.patientConfirmWaUrl ??
       whatsappLink(
         practicePhone,
-        `Hola Edwin, elegí pagar por Nequi y te envío el comprobante para confirmar mi cita.`,
+        `Hola, elegí pagar por Nequi y te envío el comprobante para confirmar mi cita.`,
       );
 
     return (
@@ -102,14 +100,14 @@ export function PatientPaymentChooser({
         <p className="text-sm leading-relaxed text-muted">
           Transfiere a{" "}
           <strong className="text-ink">{formatPhoneDisplay(nequiNumber)}</strong> y envía el
-          pantallazo + tu confirmación a Edwin.
+          pantallazo por WhatsApp para completar tu confirmación.
         </p>
         <div className="rounded-2xl bg-burgundy/[0.06] px-4 py-3 text-center text-sm font-medium text-burgundy">
-          Edwin ya fue avisado en su panel
+          Edwin ya fue avisado
         </div>
         <a href={waProof} target="_blank" rel="noreferrer" className="ios-btn ios-btn-primary w-full gap-2">
           <IconWhatsApp className="h-5 w-5" />
-          Enviar comprobante por WhatsApp
+          Enviar comprobante
         </a>
         {extras.calendarUrl ? (
           <a
@@ -118,7 +116,7 @@ export function PatientPaymentChooser({
             rel="noreferrer"
             className="ios-btn ios-btn-secondary w-full"
           >
-            Abrir en Google Calendar
+            Guardar en mi Calendar
           </a>
         ) : null}
       </div>
@@ -129,7 +127,7 @@ export function PatientPaymentChooser({
     return (
       <div className="ios-card patient-card p-5 text-center">
         <h2 className="font-display text-xl font-semibold text-ink">Cita cancelada</h2>
-        <p className="mt-2 text-sm text-muted">Comunícate con el consultorio para reprogramar.</p>
+        <p className="mt-2 text-sm text-muted">Escríbenos para reprogramar cuando quieras.</p>
       </div>
     );
   }
@@ -158,7 +156,7 @@ export function PatientPaymentChooser({
         <span>
           <span className="block font-semibold text-ink">Pagaré en efectivo</span>
           <span className="mt-0.5 block text-xs text-muted">
-            Confirma al instante · aviso a Edwin
+            Confirmas al instante
           </span>
         </span>
       </button>
