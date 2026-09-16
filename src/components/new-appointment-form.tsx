@@ -24,8 +24,26 @@ export function NewAppointmentForm({
   const [patientName, setPatientName] = useState(initialPatient?.name ?? "");
   const [patientPhone, setPatientPhone] = useState(initialPatient?.phone ?? "");
   const [query, setQuery] = useState(initialPatient?.name ?? "");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const minDate = useMemo(() => {
+    // Fecha mínima en zona Colombia (aprox. local del navegador del admin)
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
+
+  const minTime = useMemo(() => {
+    if (!date || date !== minDate) return undefined;
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + 5);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }, [date, minDate]);
 
   const selectedService = useMemo(
     () => services.find((s) => s.id === serviceId),
@@ -167,11 +185,27 @@ export function NewAppointmentForm({
       <div className="grid grid-cols-2 gap-3">
         <label className="block space-y-1.5">
           <span className="text-sm font-medium text-brown">Fecha</span>
-          <input className="ios-input" type="date" name="date" required />
+          <input
+            className="ios-input"
+            type="date"
+            name="date"
+            required
+            min={minDate}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
         </label>
         <label className="block space-y-1.5">
           <span className="text-sm font-medium text-brown">Hora</span>
-          <input className="ios-input" type="time" name="time" required />
+          <input
+            className="ios-input"
+            type="time"
+            name="time"
+            required
+            min={minTime}
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+          />
         </label>
       </div>
 

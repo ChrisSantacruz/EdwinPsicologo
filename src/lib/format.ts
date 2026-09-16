@@ -30,25 +30,11 @@ export function formatPhoneDisplay(phone: string) {
   return phone;
 }
 
-export function fancyNequiNumber(phone: string) {
-  return phoneDigits(phone)
-    .split("")
-    .map((n) => {
-      const map: Record<string, string> = {
-        "0": "0️⃣",
-        "1": "1️⃣",
-        "2": "2️⃣",
-        "3": "3️⃣",
-        "4": "4️⃣",
-        "5": "5️⃣",
-        "6": "6️⃣",
-        "7": "7️⃣",
-        "8": "8️⃣",
-        "9": "9️⃣",
-      };
-      return map[n] ?? n;
-    })
-    .join("");
+function greetingForNow() {
+  const hour = Number(formatBogota(new Date(), "H"));
+  if (hour < 12) return "Buenos días";
+  if (hour < 19) return "Buenas tardes";
+  return "Buenas noches";
 }
 
 type MessageInput = {
@@ -58,37 +44,44 @@ type MessageInput = {
   serviceName: string;
   price: number;
   confirmUrl?: string;
+  patientName?: string;
 };
 
+/** Mensaje cálido que se envía al paciente al agendar. */
 export function buildConfirmationMessage(input: MessageInput) {
   const day = formatAppointmentDate(input.scheduledAt);
   const time = formatAppointmentTime(input.scheduledAt);
-  const investment = formatMoney(input.price).replace(/\s/g, "");
-  const nequiFancy = fancyNequiNumber(PRACTICE.nequi);
+  const investment = formatMoney(input.price);
+  const firstName = input.patientName?.trim().split(/\s+/)[0];
+  const hello = firstName ? `Hola ${firstName}` : "Hola";
 
-  let msg = `▪️CONFIRMO CITA:
+  let msg = `${hello}, ${greetingForNow().toLowerCase()} 🌿
 
-Buenos días. 
-✅${PRACTICE.professionalName}
-${PRACTICE.title} 
-Confirma cita para el día: 
-🗓️${day}
-📍Dirección: ${input.address} 
-🏙️Barrio: ${input.neighborhood}
-⏰Hora: ${time} 
-Actividad: ${input.serviceName} 
-Inversión: ${investment}
-Para agendarle su cita es tan amable de transferir por Nequi al número                📱${nequiFancy}y enviar vía WhatsApp comprobante del mismo y así confirmar su asistencia.
-Mil Gracias❗️
+Te escribe ${PRACTICE.professionalName}, ${PRACTICE.title.toLowerCase()}.
+Quiero acompañarte en este espacio de cuidado.
 
-<Mensaje de agendamiento electrónico TEAM 〽️> para ${formatBogota(input.scheduledAt, "yyyy")}.`;
+Te propongo esta cita:
+
+🗓️ ${day}
+⏰ ${time}
+🩺 ${input.serviceName}
+📍 ${input.address}
+🏙️ ${input.neighborhood}
+💰 Inversión: ${investment}
+
+Para confirmar, elige si pagarás en efectivo o por Nequi (${formatPhoneDisplay(PRACTICE.nequi)}).`;
 
   if (input.confirmUrl) {
     msg += `
 
-🔗 Confirma tu cita y método de pago aquí:
+Confirma aquí (es rápido y seguro):
 ${input.confirmUrl}`;
   }
+
+  msg += `
+
+Si tienes alguna duda, respóndeme por este mismo chat.
+Estoy aquí para ti. ¡Mil gracias! 🤍`;
 
   return msg;
 }
@@ -112,19 +105,23 @@ export function buildPatientReminderMessage(input: {
 }) {
   const day = formatAppointmentDate(input.scheduledAt);
   const time = formatAppointmentTime(input.scheduledAt);
-  let msg = `Hola ${input.patientName.split(" ")[0]}, te recuerdo tu cita con ${PRACTICE.professionalName} (${PRACTICE.title}).
+  const first = input.patientName.split(" ")[0];
+  let msg = `Hola ${first} 🌿
+
+Te recuerdo con cariño tu cita con ${PRACTICE.professionalName}.
 
 🗓️ ${day}
 ⏰ ${time}
 📍 ${input.address}
 🩺 ${input.serviceName}
 
-¿Nos confirmas tu asistencia?
-Mil gracias ❗️`;
+¿Me confirmas tu asistencia?`;
 
   if (input.confirmUrl) {
-    msg += `\n\n🔗 Confirma aquí: ${input.confirmUrl}`;
+    msg += `\n\nPuedes confirmar aquí:\n${input.confirmUrl}`;
   }
+
+  msg += `\n\n¡Te espero!`;
   return msg;
 }
 
@@ -135,7 +132,7 @@ export function buildEdwinSelfReminderMessage(input: {
 }) {
   const day = formatAppointmentDate(input.dueAt);
   const time = formatAppointmentTime(input.dueAt);
-  return `🔔 Recuérdame
+  return `Recordatorio
 
 ${input.title}
 🗓️ ${day}
@@ -157,14 +154,12 @@ export function buildEdwinPatientAlertMessage(input: {
   const time = formatAppointmentTime(input.scheduledAt);
   const method =
     input.paymentMethod === "EFECTIVO"
-      ? "Efectivo — cita CONFIRMADA"
-      : input.paymentMethod === "NEQUI" && input.adminUrl
-        ? "Nequi — esperando comprobante"
-        : "Nequi";
+      ? "Efectivo — cita confirmada"
+      : "Nequi — pendiente de comprobante";
 
-  let msg = `🤖 BOT · Confirmación de cita
+  let msg = `Nueva confirmación
 
-Paciente: ${input.patientName}${input.patientPhone ? `\nWhatsApp: ${input.patientPhone}` : ""}
+👤 ${input.patientName}${input.patientPhone ? `\n📱 ${formatPhoneDisplay(input.patientPhone)}` : ""}
 🩺 ${input.serviceName}
 🗓️ ${day}
 ⏰ ${time}
@@ -172,13 +167,12 @@ Paciente: ${input.patientName}${input.patientPhone ? `\nWhatsApp: ${input.patien
 
   if (input.address) msg += `\n📍 ${input.address}`;
   if (input.price) msg += `\n💰 ${formatMoney(input.price)}`;
-  if (input.calendarUrl) msg += `\n\n📅 Abrir en Google Calendar:\n${input.calendarUrl}`;
-  if (input.adminUrl) msg += `\n\n🖥️ Ver en el panel:\n${input.adminUrl}`;
+  if (input.calendarUrl) msg += `\n\nCalendar:\n${input.calendarUrl}`;
+  if (input.adminUrl) msg += `\n\nVer cita:\n${input.adminUrl}`;
 
   return msg;
 }
 
-/** Mensaje que el paciente le envía a Edwin al confirmar. */
 export function buildPatientToEdwinConfirmMessage(input: {
   patientName: string;
   paymentMethod: string;
@@ -191,20 +185,19 @@ export function buildPatientToEdwinConfirmMessage(input: {
   const method =
     input.paymentMethod === "EFECTIVO"
       ? "Efectivo"
-      : "Nequi (envío comprobante)";
+      : "Nequi (envío el comprobante)";
 
-  return `✅ Hola Edwin, confirmo mi cita
+  return `Hola ${PRACTICE.professionalName.split(" ")[0]}, confirmo mi cita 🤍
 
-Paciente: ${input.patientName}
+👤 ${input.patientName}
 🩺 ${input.serviceName}
 🗓️ ${day}
 ⏰ ${time}
 💳 ${method}${input.address ? `\n📍 ${input.address}` : ""}
 
-Quedo atento/a. ¡Mil gracias!`;
+¡Mil gracias!`;
 }
 
-/** Link “Agregar a Google Calendar” (no requiere OAuth). */
 export function buildGoogleCalendarUrl(input: {
   title: string;
   start: Date;

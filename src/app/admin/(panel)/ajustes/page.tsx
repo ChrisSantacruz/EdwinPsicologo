@@ -6,8 +6,7 @@ import {
 } from "@/lib/calendar";
 import { PRACTICE } from "@/lib/constants";
 import { formatPhoneDisplay } from "@/lib/format";
-import { isWhatsAppConfigured, isWhatsAppBotConfigured } from "@/lib/whatsapp";
-import { getAppUrl } from "@/lib/app-url";
+import { isWhatsAppBotConfigured, isWhatsAppConfigured } from "@/lib/whatsapp";
 
 export default async function AjustesPage({
   searchParams,
@@ -15,204 +14,102 @@ export default async function AjustesPage({
   searchParams: Promise<{ google?: string }>;
 }) {
   const { google } = await searchParams;
-  const connected = await isGoogleConnected();
+  const calendarOk = await isGoogleConnected();
   const authUrl = getGoogleAuthUrl();
-  const googleConfigured = Boolean(
+  const googleReady = Boolean(
     process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim(),
   );
   const redirectUri = getGoogleRedirectUri();
-  const waConfigured = isWhatsAppConfigured();
-  const botConfigured = isWhatsAppBotConfigured();
-  const appUrl = getAppUrl();
-  const webhookUrl = `${appUrl}/api/whatsapp/webhook`;
-  const botUrl = process.env.WHATSAPP_BOT_URL?.replace(/\/$/, "") ?? "";
+  const waReady = isWhatsAppConfigured();
+  const botReady = isWhatsAppBotConfigured();
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <div>
         <h2 className="font-display text-3xl font-semibold text-ink">Ajustes</h2>
-        <p className="mt-1 text-sm text-muted">Integraciones del consultorio</p>
+        <p className="mt-1 text-sm text-muted">Conecta tu agenda y tu WhatsApp</p>
       </div>
 
       {google === "connected" ? (
         <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
-          Google Calendar conectado. Las citas nuevas se sincronizan solas.
+          ¡Listo! Tu Google Calendar quedó conectado.
         </p>
       ) : null}
       {google === "error" ? (
         <p className="rounded-2xl bg-burgundy/10 px-4 py-3 text-sm font-medium text-burgundy">
-          No se pudo conectar Google. Revisa Client ID/Secret, el redirect URI y que el Gmail esté
-          como usuario de prueba.
+          No se pudo conectar Calendar. En Google Cloud, en tu cliente OAuth, agrega exactamente
+          esta dirección de redirección:
+          <code className="mt-2 block break-all rounded-xl bg-white px-3 py-2 text-xs">{redirectUri}</code>
         </p>
       ) : null}
 
       <div className="ios-card space-y-3 p-5">
-        <h3 className="font-semibold text-ink">Consultorio</h3>
-        <p className="text-sm text-muted">Profesional: {PRACTICE.professionalName}</p>
+        <h3 className="font-semibold text-ink">Tu consultorio</h3>
+        <p className="text-sm text-muted">{PRACTICE.professionalName}</p>
         <p className="text-sm text-muted">WhatsApp / Nequi: {formatPhoneDisplay(PRACTICE.phone)}</p>
-        <p className="text-sm text-muted">Ciudad: {PRACTICE.city}</p>
+        <p className="text-sm text-muted">{PRACTICE.city}</p>
       </div>
 
       <div className="ios-card space-y-4 p-5">
-        <h3 className="font-semibold text-ink">WhatsApp (bot Render)</h3>
-        {botConfigured ? (
+        <h3 className="font-semibold text-ink">WhatsApp</h3>
+        <p className="text-sm text-muted">
+          Vincula el celular desde el panel, sin entrar a páginas técnicas.
+        </p>
+        {waReady || botReady ? (
           <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
-            Bot enlazado · el botón “Enviar mensaje” usa tu WhatsApp vinculado
-            {botUrl ? (
-              <>
-                {" "}
-                (
-                <a className="underline" href={`${botUrl}/qr`} target="_blank" rel="noreferrer">
-                  ver estado
-                </a>
-                )
-              </>
-            ) : null}
+            Listo para enviar mensajes a tus pacientes
           </p>
         ) : (
           <p className="rounded-2xl bg-canvas px-4 py-3 text-sm text-muted">
-            En Vercel agrega{" "}
-            <code className="text-burgundy">WHATSAPP_BOT_URL=https://edwinpsicologo.onrender.com</code>{" "}
-            y el mismo <code className="text-burgundy">WHATSAPP_BOT_SECRET</code> /{" "}
-            <code className="text-burgundy">BOT_SECRET</code> que en Render.
+            Aún no está vinculado. Usa el botón de abajo.
           </p>
         )}
-      </div>
-
-      <div className="ios-card space-y-4 p-5">
-        <h3 className="font-semibold text-ink">WhatsApp Cloud API (Meta · opcional)</h3>
-        {waConfigured && !botConfigured ? (
-          <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
-            Cloud API lista · puedes enviar desde cada cita sin abrir WhatsApp
-          </p>
-        ) : botConfigured ? (
-          <p className="rounded-2xl bg-canvas px-4 py-3 text-sm text-muted">
-            No hace falta Meta si ya usas el bot de Render. Cloud API es alternativa oficial.
-          </p>
-        ) : (
-          <p className="rounded-2xl bg-canvas px-4 py-3 text-sm text-muted">
-            Sin Meta ni bot: el panel usa{" "}
-            <strong className="text-ink">Abrir en WhatsApp (wa.me)</strong> hacia{" "}
-            {formatPhoneDisplay(PRACTICE.phone)}.
-          </p>
-        )}
-
-        <div className="space-y-2 text-sm leading-relaxed text-muted">
-          <p className="font-medium text-ink">Por qué esta y no Evolution / Baileys</p>
-          <ul className="list-disc space-y-1 pl-4">
-            <li>Oficial de Meta → estable en Vercel/hosting serverless</li>
-            <li>Cuota gratuita mensual suficiente para un consultorio</li>
-            <li>Evolution/Baileys necesitan VPS 24/7, QR y se banean fácil</li>
-          </ul>
-          <p className="font-medium text-ink pt-2">Setup rápido</p>
-          <ol className="list-decimal space-y-1 pl-4">
-            <li>
-              Entra a{" "}
-              <a
-                className="font-semibold text-burgundy underline"
-                href="https://developers.facebook.com/apps"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Meta for Developers
-              </a>{" "}
-              → app → WhatsApp → API Setup
-            </li>
-            <li>Copia Temporary/Permanent Access Token y Phone number ID</li>
-            <li>
-              Pégalos en <code>.env</code> como <code>WHATSAPP_TOKEN</code> y{" "}
-              <code>WHATSAPP_PHONE_NUMBER_ID</code>
-            </li>
-            <li>
-              Webhook (opcional pero útil): <code className="break-all text-burgundy">{webhookUrl}</code>
-            </li>
-            <li>
-              Verify token: el mismo valor de <code>WHATSAPP_VERIFY_TOKEN</code>
-            </li>
-            <li>
-              Para escribir primero al paciente (fuera de 24h), crea una plantilla en Meta y pon{" "}
-              <code>WHATSAPP_TEMPLATE_NAME</code>
-            </li>
-          </ol>
-        </div>
-      </div>
-
-      <div className="ios-card space-y-4 p-5">
-        <h3 className="font-semibold text-ink">Notificaciones del sitio</h3>
-        <p className="text-sm leading-relaxed text-muted">
-          Con el panel abierto en{" "}
-          <a className="font-semibold text-burgundy underline" href={appUrl}>
-            {appUrl}
-          </a>
-          , el navegador muestra alertas cuando un paciente confirma o elige Nequi. Activa el permiso
-          con el banner superior o desde la barra de direcciones del navegador.
-        </p>
-      </div>
-
-      <div className="ios-card space-y-4 p-5">
-        <h3 className="font-semibold text-ink">Google Calendar (Gmail personal)</h3>
-        <p className="text-sm leading-relaxed text-muted">
-          Aquí viven los recordatorios de Edwin. Conecta tu Gmail para crear/actualizar eventos al
-          agendar (zona America/Bogota · avisos 60 y 15 min antes).
-        </p>
-
-        {!googleConfigured ? (
-          <div className="rounded-2xl bg-canvas p-4 text-sm text-muted">
-            <p className="font-medium text-ink">Configuración pendiente en Google Cloud</p>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-4">
-              <li>
-                Abre{" "}
-                <a
-                  className="font-semibold text-burgundy underline"
-                  href="https://console.cloud.google.com/"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Google Cloud Console
-                </a>{" "}
-                → crea proyecto (ej. Edwin Citas)
-              </li>
-              <li>APIs y servicios → Biblioteca → activa <strong>Google Calendar API</strong></li>
-              <li>
-                Pantalla de consentimiento OAuth → External → agrega el Gmail de Edwin como{" "}
-                <strong>usuario de prueba</strong>
-              </li>
-              <li>
-                Credenciales → Crear credenciales → ID de cliente OAuth → tipo{" "}
-                <strong>Aplicación web</strong>
-              </li>
-              <li>
-                URI de redirección autorizada (cópiala exacta):
-                <code className="mt-1 block break-all rounded-xl bg-white px-3 py-2 text-burgundy">
-                  {redirectUri}
-                </code>
-              </li>
-              <li>
-                En Vercel pega <code>GOOGLE_CLIENT_ID</code> y <code>GOOGLE_CLIENT_SECRET</code> →
-                redeploy
-              </li>
-            </ol>
-          </div>
-        ) : connected ? (
-          <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
-            Calendar conectado correctamente
-          </p>
-        ) : authUrl ? (
-          <a href={authUrl} className="ios-btn ios-btn-primary w-full">
-            Conectar Google Calendar
-          </a>
-        ) : null}
-
-        {googleConfigured ? (
-          <p className="text-xs text-muted">
-            Redirect URI en uso: <code className="break-all text-burgundy">{redirectUri}</code>
-          </p>
-        ) : null}
-
-        <Link href="/admin" className="ios-btn ios-btn-secondary w-full">
-          Volver a la agenda
+        <Link href="/admin/whatsapp" className="ios-btn ios-btn-primary w-full">
+          Conectar o revisar WhatsApp
         </Link>
       </div>
+
+      <div className="ios-card space-y-4 p-5">
+        <h3 className="font-semibold text-ink">Google Calendar</h3>
+        <p className="text-sm text-muted">
+          Las citas se agregan solas a tu calendario, con avisos antes de cada sesión.
+        </p>
+
+        {!googleReady ? (
+          <p className="rounded-2xl bg-canvas px-4 py-3 text-sm text-muted">
+            Falta configurar Google en el hosting. Pide ayuda a quien te instaló el sistema.
+          </p>
+        ) : calendarOk ? (
+          <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
+            Calendar conectado
+          </p>
+        ) : authUrl ? (
+          <div className="space-y-3">
+            <a href={authUrl} className="ios-btn ios-btn-primary w-full">
+              Conectar mi Google Calendar
+            </a>
+            <p className="text-xs leading-relaxed text-muted">
+              Si Google dice que la solicitud no es válida, agrega esta URL en la consola de Google
+              (URI de redirección):
+              <code className="mt-1 block break-all rounded-xl bg-canvas px-3 py-2 text-burgundy">
+                {redirectUri}
+              </code>
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="ios-card space-y-3 p-5">
+        <h3 className="font-semibold text-ink">Notificaciones en el celular</h3>
+        <p className="text-sm text-muted">
+          Con el panel abierto, el navegador puede avisarte cuando un paciente confirma. Activa el
+          permiso si te aparece el banner arriba.
+        </p>
+      </div>
+
+      <Link href="/admin" className="ios-btn ios-btn-secondary w-full">
+        Volver a la agenda
+      </Link>
     </div>
   );
 }

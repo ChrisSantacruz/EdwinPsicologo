@@ -11,7 +11,7 @@ export default function ManualPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-burgundy">
             {BRAND.tagline}
           </p>
-          <h1 className="font-display text-3xl font-semibold text-ink">Manual rápido</h1>
+          <h1 className="font-display text-3xl font-semibold text-ink">Cómo usar tu agenda</h1>
         </div>
       </div>
 
@@ -19,64 +19,46 @@ export default function ManualPage() {
         <section>
           <h2 className="font-semibold text-ink">1. Crear una cita</h2>
           <p className="mt-1">
-            Panel → <strong>Nueva cita</strong> → paciente, servicio, precio, sede, fecha y hora. Se
-            genera el mensaje y el link del paciente. El recordatorio para Edwin va en{" "}
-            <strong>Google Calendar</strong>.
+            Entra a <strong>Nueva cita</strong>, elige paciente, tipo de consulta, sede, día y hora.
+            El sistema prepara el mensaje y el link para que la persona confirme.
           </p>
         </section>
         <section>
-          <h2 className="font-semibold text-ink">2. Enviar por WhatsApp</h2>
-          <ul className="mt-1 list-disc space-y-1 pl-5">
-            <li>
-              <strong>API configurada:</strong> botón “Enviar por WhatsApp API” (automático).
-            </li>
-            <li>
-              <strong>Sin API:</strong> “Abrir en WhatsApp” (wa.me, gratis, un toque).
-            </li>
-          </ul>
+          <h2 className="font-semibold text-ink">2. Enviar el mensaje</h2>
+          <p className="mt-1">
+            En la cita, toca <strong>Enviar mensaje</strong>. Si WhatsApp está vinculado, se envía
+            solo. Si no, usa <strong>Abrir en WhatsApp</strong> y envías tú el texto.
+          </p>
         </section>
         <section>
           <h2 className="font-semibold text-ink">3. Confirmación del paciente</h2>
-          <ul className="mt-1 list-disc space-y-1 pl-5">
-            <li>
-              <strong>Efectivo:</strong> se confirma sola · alerta en el panel.
-            </li>
-            <li>
-              <strong>Nequi:</strong> pantallazo al chat · Edwin confirma en la cita.
-            </li>
-          </ul>
-        </section>
-        <section>
-          <h2 className="font-semibold text-ink">4. Contactos</h2>
           <p className="mt-1">
-            Importa CSV de Google Contacts o agrégalos a mano. Cada cita guarda el paciente.
+            La persona abre el link, elige <strong>efectivo</strong> (queda confirmada) o{" "}
+            <strong>Nequi</strong> (te envía el comprobante y tú confirmas en el panel).
           </p>
         </section>
         <section>
-          <h2 className="font-semibold text-ink">5. Google Calendar</h2>
+          <h2 className="font-semibold text-ink">4. Calendar y WhatsApp</h2>
           <p className="mt-1">
-            En <strong>Ajustes</strong> conecta Gmail. Ahí Edwin maneja recordatorios y agenda.
+            En <strong>Ajustes</strong> conectas tu Google Calendar. En{" "}
+            <strong>WhatsApp</strong> vinculas el celular escaneando el código desde esta misma
+            página web (no necesitas entrar a Render).
           </p>
         </section>
         <section>
-          <h2 className="font-semibold text-ink">6. WhatsApp Cloud API</h2>
+          <h2 className="font-semibold text-ink">5. En el celular</h2>
           <p className="mt-1">
-            Oficial de Meta, cuota gratis. No uses Evolution/Baileys en Vercel: necesitan VPS y se
-            caen. Guía en Ajustes.
+            En Safari o Chrome: “Agregar a pantalla de inicio” para abrir tu agenda como una app.
           </p>
-        </section>
-        <section>
-          <h2 className="font-semibold text-ink">7. App en el celular</h2>
-          <p className="mt-1">Safari/Chrome → “Agregar a pantalla de inicio” (PWA).</p>
         </section>
       </div>
 
-      <div className="mt-6 flex gap-2">
+      <div className="mt-6 flex flex-wrap gap-2">
         <Link href="/admin" className="ios-btn ios-btn-primary">
-          Ir al panel
+          Ir a la agenda
         </Link>
-        <Link href="/admin/ajustes" className="ios-btn ios-btn-secondary">
-          Ajustes
+        <Link href="/admin/whatsapp" className="ios-btn ios-btn-secondary">
+          Conectar WhatsApp
         </Link>
       </div>
     </main>

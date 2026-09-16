@@ -95,6 +95,7 @@ export function EditAppointmentForm({
           type="date"
           name="date"
           required
+          min={bogotaDateInputValue(new Date())}
           defaultValue={bogotaDateInputValue(scheduled)}
         />
         <input

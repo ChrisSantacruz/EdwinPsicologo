@@ -84,6 +84,7 @@ function rebuildMessage(input: {
   neighborhood: string;
   serviceName: string;
   price: number;
+  patientName?: string;
 }) {
   const appUrl = getAppUrl();
   return buildConfirmationMessage({
@@ -146,6 +147,9 @@ export async function createAppointmentAction(formData: FormData) {
   const data = parsed.data;
   const scheduledAt = bogotaDateTime(data.date, data.time);
   if (Number.isNaN(scheduledAt.getTime())) return { error: "Fecha u hora inválida" };
+  if (scheduledAt.getTime() < Date.now() - 60_000) {
+    return { error: "La fecha y hora deben ser posteriores a ahora" };
+  }
 
   const [service, location] = await Promise.all([
     prisma.service.findUnique({ where: { id: data.serviceId } }),
@@ -165,6 +169,7 @@ export async function createAppointmentAction(formData: FormData) {
     neighborhood: location.neighborhood,
     serviceName: service.name,
     price: data.price,
+    patientName: data.patientName,
   });
 
   const patient = await upsertPatient(data.patientName, data.patientPhone);
@@ -217,6 +222,10 @@ export async function updateAppointmentAction(formData: FormData) {
   if (!date || !time || !price) return { error: "Revisa fecha, hora y precio" };
 
   const scheduledAt = bogotaDateTime(date, time);
+  if (Number.isNaN(scheduledAt.getTime())) return { error: "Fecha u hora inválida" };
+  if (scheduledAt.getTime() < Date.now() - 60_000) {
+    return { error: "La fecha y hora deben ser posteriores a ahora" };
+  }
   const [service, location] = await Promise.all([
     prisma.service.findUnique({ where: { id: serviceId } }),
     prisma.location.findUnique({ where: { id: locationId } }),
@@ -231,6 +240,7 @@ export async function updateAppointmentAction(formData: FormData) {
     neighborhood: location.neighborhood,
     serviceName: service.name,
     price,
+    patientName,
   });
 
   const updated = await prisma.appointment.update({

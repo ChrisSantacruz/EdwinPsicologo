@@ -6,8 +6,7 @@ import { getAppUrl } from "./app-url";
 import { TZ } from "./time";
 
 function getRedirectUri() {
-  const configured = process.env.GOOGLE_REDIRECT_URI?.trim();
-  if (configured) return configured;
+  // Siempre el dominio público actual — evita redirect_uri_mismatch
   return `${getAppUrl()}/api/google/callback`;
 }
 

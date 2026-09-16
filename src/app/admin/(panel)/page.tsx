@@ -60,9 +60,6 @@ export default async function AdminDashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <a href="/api/export/citas" className="ios-btn ios-btn-secondary">
-            Exportar CSV
-          </a>
           <Link href="/admin/citas/nueva" className="ios-btn ios-btn-primary">
             Nueva cita
           </Link>

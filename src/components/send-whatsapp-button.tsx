@@ -16,10 +16,11 @@ export function SendWhatsAppApiButton({
   if (!configured) {
     return (
       <p className="rounded-2xl bg-canvas px-4 py-3 text-sm text-muted">
-        Falta enlazar el bot. En Vercel agrega{" "}
-        <code className="text-burgundy">WHATSAPP_BOT_URL</code> y{" "}
-        <code className="text-burgundy">WHATSAPP_BOT_SECRET</code> (mismos valores que en Render).
-        Mientras tanto puedes usar “Abrir en WhatsApp”.
+        WhatsApp aún no está vinculado. Ve a{" "}
+        <a href="/admin/whatsapp" className="font-semibold text-burgundy">
+          WhatsApp
+        </a>{" "}
+        para conectar tu celular, o usa “Abrir en WhatsApp” por ahora.
       </p>
     );
   }
@@ -36,15 +37,7 @@ export function SendWhatsAppApiButton({
             setMessage(null);
             const res = await action();
             if (res?.error) setError(res.error);
-            else {
-              const label =
-                res.mode === "bot"
-                  ? "Enviado por el bot de WhatsApp"
-                  : res.mode === "template"
-                    ? "Enviado (plantilla Meta)"
-                    : "Mensaje enviado";
-              setMessage(label);
-            }
+            else setMessage("Mensaje enviado al paciente");
           })
         }
       >

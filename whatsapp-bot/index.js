@@ -223,6 +223,29 @@ async function main() {
     res.status(200).send("ok");
   });
 
+  /** PNG del QR para mostrar en el panel (edwinmideros.site/admin/whatsapp). */
+  app.get("/qr.png", async (_req, res) => {
+    if (sock?.user) {
+      return res.status(404).send("already_connected");
+    }
+    if (!latestQr) {
+      return res.status(404).send("waiting");
+    }
+    try {
+      const png = await QRCode.toBuffer(latestQr, {
+        type: "png",
+        width: 400,
+        margin: 2,
+        errorCorrectionLevel: "M",
+      });
+      res.set("Cache-Control", "no-store");
+      return res.type("png").send(png);
+    } catch (err) {
+      console.error("qr.png:", err.message);
+      return res.status(500).send("error");
+    }
+  });
+
   /**
    * Enviar mensaje desde el panel (Vercel).
    * Header: x-bot-secret: BOT_SECRET
