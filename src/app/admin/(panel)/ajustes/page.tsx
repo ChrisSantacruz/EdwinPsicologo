@@ -104,6 +104,18 @@ export default async function AjustesPage({
       </div>
 
       <div className="ios-card space-y-4 p-5">
+        <h3 className="font-semibold text-ink">Notificaciones del sitio</h3>
+        <p className="text-sm leading-relaxed text-muted">
+          Con el panel abierto en{" "}
+          <a className="font-semibold text-burgundy underline" href={appUrl}>
+            {appUrl}
+          </a>
+          , el navegador muestra alertas cuando un paciente confirma o elige Nequi. Activa el permiso
+          con el banner superior o desde la barra de direcciones del navegador.
+        </p>
+      </div>
+
+      <div className="ios-card space-y-4 p-5">
         <h3 className="font-semibold text-ink">Google Calendar (Gmail personal)</h3>
         <p className="text-sm leading-relaxed text-muted">
           Aquí viven los recordatorios de Edwin. Conecta tu Gmail para crear/actualizar eventos al
