@@ -33,8 +33,8 @@ export default function ManualPage() {
         <section>
           <h2 className="font-semibold text-ink">3. Confirmación del paciente</h2>
           <p className="mt-1">
-            La persona abre el link, elige <strong>efectivo</strong> (queda confirmada) o{" "}
-            <strong>Nequi</strong> (te envía el comprobante y tú confirmas en el panel).
+            La persona abre el link, paga por <strong>Nequi</strong>, te envía el pantallazo y tú
+            confirmas en el panel.
           </p>
         </section>
         <section>

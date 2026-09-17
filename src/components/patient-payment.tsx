@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { patientChoosePaymentAction } from "@/app/actions";
 import { formatMoney, formatPhoneDisplay, whatsappLink } from "@/lib/format";
-import { IconCash, IconCheck, IconNequi, IconWhatsApp } from "@/components/icons";
+import { IconCheck, IconNequi, IconWhatsApp } from "@/components/icons";
 import { CopyButton } from "@/components/client-actions";
 
 type ConfirmExtras = {
@@ -85,33 +85,6 @@ export function PatientPaymentChooser({
     );
   }
 
-  if (status === "AWAITING_EDWIN") {
-    return (
-      <div className="ios-card patient-card fade-up space-y-4 p-5 text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/10 text-success shadow-inner">
-          <IconCheck className="h-8 w-8" />
-        </div>
-        <h2 className="font-display text-2xl font-semibold text-ink">Pago registrado</h2>
-        <div className="mx-auto h-px w-14 bg-gradient-to-r from-transparent via-gold to-transparent" />
-        <p className="text-sm leading-relaxed text-muted">
-          Elegiste pagar en efectivo. Tu solicitud quedó registrada. Edwin está revisando y, en
-          cuanto acepte tu cita, te llegará un mensaje por WhatsApp. Mientras tanto, puedes
-          agendarla en tu Google Calendar.
-        </p>
-        {extras.calendarUrl ? (
-          <a
-            href={extras.calendarUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="ios-btn ios-btn-secondary w-full"
-          >
-            Agendar en Google Calendar
-          </a>
-        ) : null}
-      </div>
-    );
-  }
-
   if (status === "AWAITING_PROOF") {
     const waProof = whatsappLink(
       practicePhone,
@@ -172,6 +145,7 @@ export function PatientPaymentChooser({
     );
   }
 
+  // PENDING_PATIENT (u otro): solo Nequi
   return (
     <div className="ios-card patient-card fade-up space-y-4 p-5">
       <div className="text-center">
@@ -179,27 +153,9 @@ export function PatientPaymentChooser({
         <p className="mt-1 text-sm text-muted">
           Inversión: <strong className="text-ink">{amountLabel}</strong>
         </p>
+        <p className="mt-1 text-xs text-muted">El pago se realiza únicamente por Nequi</p>
         <div className="mx-auto mt-2 h-px w-14 bg-gradient-to-r from-transparent via-gold to-transparent" />
       </div>
-
-      <button
-        type="button"
-        disabled={pending}
-        className="patient-pay-option"
-        onClick={() =>
-          startTransition(async () => {
-            applyResult(await patientChoosePaymentAction(token, "EFECTIVO"));
-          })
-        }
-      >
-        <span className="patient-pay-icon text-burgundy">
-          <IconCash className="h-5 w-5" />
-        </span>
-        <span>
-          <span className="block font-semibold text-ink">Pagaré en efectivo</span>
-          <span className="mt-0.5 block text-xs text-muted">Edwin confirmará tu cita</span>
-        </span>
-      </button>
 
       <button
         type="button"
@@ -215,7 +171,7 @@ export function PatientPaymentChooser({
           <IconNequi className="h-5 w-5" />
         </span>
         <span>
-          <span className="block font-semibold text-ink">Pagar por Nequi</span>
+          <span className="block font-semibold text-ink">Continuar con Nequi</span>
           <span className="mt-0.5 block text-xs text-muted">
             Envías pantallazo · Edwin confirma
           </span>

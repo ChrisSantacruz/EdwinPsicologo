@@ -365,7 +365,7 @@ export async function cancelAppointmentAction(appointmentId: string) {
 
 export async function patientChoosePaymentAction(
   token: string,
-  method: "EFECTIVO" | "NEQUI",
+  method: "NEQUI" | "EFECTIVO" = "NEQUI",
 ) {
   const appointment = await prisma.appointment.findUnique({
     where: { token },
@@ -381,6 +381,11 @@ export async function patientChoosePaymentAction(
   }
   if (appointment.status !== STATUS.PENDING_PATIENT) {
     return { error: "Ya elegiste forma de pago. Si necesitas cambiar, escribe a Edwin." };
+  }
+
+  // Solo Nequi
+  if (method !== PAYMENT.NEQUI) {
+    return { error: "El pago solo está disponible por Nequi" };
   }
 
   let paymentRef = appointment.paymentRef;
@@ -413,7 +418,7 @@ export async function patientChoosePaymentAction(
 
     const patientMessage = buildPatientToEdwinConfirmMessage({
       patientName: updated.patientName,
-      paymentMethod: updated.paymentMethod ?? method,
+      paymentMethod: updated.paymentMethod ?? PAYMENT.NEQUI,
       scheduledAt: updated.scheduledAt,
       serviceName: updated.service.name,
       address: updated.location.address,
@@ -425,35 +430,6 @@ export async function patientChoosePaymentAction(
       amount: updated.price,
       nequi: PRACTICE.nequi,
       patientConfirmWaUrl: whatsappLink(PRACTICE.phone, patientMessage),
-    };
-  }
-
-  if (method === PAYMENT.EFECTIVO) {
-    const updated = await prisma.appointment.update({
-      where: { token },
-      data: {
-        paymentMethod: PAYMENT.EFECTIVO,
-        paymentRef,
-        status: STATUS.AWAITING_EDWIN,
-        patientConfirmedAt: new Date(),
-      },
-      include: { service: true, location: true },
-    });
-
-    const alerts = await buildAlerts(updated);
-
-    await notifyEdwin({
-      title: `${updated.patientName} eligió efectivo`,
-      body: `Confirma la cita cuando quieras · ${updated.service.name} · ${formatAppointmentDate(updated.scheduledAt)} · ${formatAppointmentTime(updated.scheduledAt)}`,
-      appointmentId: updated.id,
-    });
-
-    revalidatePath(appointmentPublicPath(token));
-    revalidatePath("/admin");
-    return {
-      ok: true,
-      status: STATUS.AWAITING_EDWIN,
-      ...alerts,
     };
   }
 
