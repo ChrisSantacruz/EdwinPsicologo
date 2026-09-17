@@ -16,7 +16,7 @@ import {
   formatMoney,
   whatsappLink,
 } from "@/lib/format";
-import { PAYMENT, PRACTICE, STATUS, whatsappInviteRecipient } from "@/lib/constants";
+import { PAYMENT, PRACTICE, STATUS } from "@/lib/constants";
 import { upsertCalendarEvent, deleteCalendarEvent } from "@/lib/calendar";
 import { normalizePhone, upsertPatient } from "@/lib/patients";
 import { parseContactsCsv } from "@/lib/csv";
@@ -678,7 +678,7 @@ export async function sendAppointmentWhatsAppAction(appointmentId: string) {
 
   const { sendAppointmentWhatsApp } = await import("@/lib/whatsapp");
   const result = await sendAppointmentWhatsApp({
-    toPhone: whatsappInviteRecipient(appointment.patientPhone),
+    toPhone: appointment.patientPhone,
     fullMessage: message,
     templateParams: {
       patientName: appointment.patientName,

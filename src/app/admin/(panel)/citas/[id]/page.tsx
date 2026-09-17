@@ -22,7 +22,6 @@ import {
 import { isWhatsAppConfigured } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/app-url";
 import { appointmentPublicPath } from "@/lib/appointment-token";
-import { whatsappInviteRecipient } from "@/lib/constants";
 
 /** Enviar por bot puede esperar despertar de Render + ready post-QR. */
 export const maxDuration = 60;
@@ -61,8 +60,7 @@ export default async function AppointmentDetailPage({
       })
     : null;
   const message = confirmMessage ?? appointment.whatsappMessage ?? "";
-  const invitePhone = whatsappInviteRecipient(appointment.patientPhone);
-  const waPatient = whatsappLink(invitePhone, message);
+  const waPatient = whatsappLink(appointment.patientPhone, message);
   const waConfigured = isWhatsAppConfigured();
 
   return (
