@@ -33,7 +33,7 @@ const loadSentMessage =
 const MONGO_URI = process.env.MONGO_URI;
 const PORT = Number(process.env.PORT || 3001);
 const SESSION_ID = process.env.WA_SESSION_ID || "default";
-const BOT_BUILD = "2026-09-17-send-ready-v11";
+const BOT_BUILD = "2026-09-17-assert-session-v12";
 
 const logger = pino({ level: process.env.LOG_LEVEL || "error" });
 const baileysLogger = logger.child({ module: "baileys" });
@@ -68,7 +68,8 @@ const MAX_RECENT = 200;
 function rememberMessage(id, message, remoteJid) {
   if (!id || !message) return;
   recentMessages.set(id, message);
-  if (recentMessages.size > MAX_RECENT) {
+  if (remoteJid) recentMessages.set(`${remoteJid}::${id}`, message);
+  if (recentMessages.size > MAX_RECENT * 2) {
     const first = recentMessages.keys().next().value;
     recentMessages.delete(first);
   }
@@ -193,6 +194,10 @@ async function startWhatsApp() {
       maxMsgRetryCount: 5,
       getMessage: async (key) => {
         if (!key?.id) return undefined;
+        const byJid = key.remoteJid
+          ? recentMessages.get(`${key.remoteJid}::${key.id}`)
+          : undefined;
+        if (byJid) return byJid;
         const cached = recentMessages.get(key.id);
         if (cached) return cached;
         try {
@@ -472,6 +477,15 @@ async function main() {
         jid = checked[0].jid;
       }
 
+      // Establecer sesión Signal antes de enviar (evita “Esperando el mensaje…”)
+      try {
+        if (typeof sock.assertSessions === "function") {
+          await sock.assertSessions([jid], true);
+        }
+      } catch (err) {
+        console.error("assertSessions:", err.message);
+      }
+
       let sent;
       let lastErr;
       for (let attempt = 1; attempt <= 3; attempt += 1) {
@@ -482,7 +496,17 @@ async function main() {
         } catch (err) {
           lastErr = err;
           console.error(`Error /send intento ${attempt}:`, err.message);
-          if (attempt < 3) await sleep(1200 * attempt);
+          // Si la sesión quedó corrupta, reintentar con assertSessions
+          if (attempt < 3) {
+            try {
+              if (typeof sock.assertSessions === "function") {
+                await sock.assertSessions([jid], true);
+              }
+            } catch {
+              // ignore
+            }
+            await sleep(1200 * attempt);
+          }
         }
       }
 
