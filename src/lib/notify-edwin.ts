@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { getAppUrl } from "@/lib/app-url";
+import { notificationsEnabled } from "@/lib/notifications-flag";
 
 /**
  * Avisa a Edwin: historial del panel + push al iPhone.
@@ -12,6 +13,8 @@ export async function notifyEdwin(input: {
   appointmentId?: string;
   tag?: string;
 }) {
+  if (!notificationsEnabled()) return;
+
   try {
     await prisma.notification.create({
       data: {

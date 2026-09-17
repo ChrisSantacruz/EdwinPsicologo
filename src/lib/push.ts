@@ -29,6 +29,9 @@ export async function sendDevicePush(input: {
   url?: string;
   tag?: string;
 }) {
+  const { notificationsEnabled } = await import("@/lib/notifications-flag");
+  if (!notificationsEnabled()) return { sent: 0, failed: 0 };
+
   if (!ensureWebPush()) {
     console.warn("Web Push no configurado (VAPID keys)");
     return { sent: 0, failed: 0 };
