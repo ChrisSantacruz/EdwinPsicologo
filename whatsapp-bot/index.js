@@ -161,31 +161,6 @@ async function startWhatsApp() {
         }, delay);
       }
     });
-
-    sock.ev.on("messages.upsert", async ({ messages, type }) => {
-      if (type !== "notify") return;
-
-      for (const msg of messages) {
-        try {
-          if (msg.key.fromMe) continue;
-          const jid = msg.key.remoteJid;
-          if (!jid || jid.endsWith("@g.us")) continue;
-
-          const text =
-            msg.message?.conversation ||
-            msg.message?.extendedTextMessage?.text ||
-            "";
-
-          const normalized = text.trim().toLowerCase();
-          if (!normalized) continue;
-
-          console.log(`📩 ${jid}: ${text}`);
-          // Sin auto-respuestas: solo envíos desde el panel
-        } catch (err) {
-          console.error("Error en messages.upsert:", err.message);
-        }
-      }
-    });
   } catch (err) {
     isConnecting = false;
     waStatus = "error";
