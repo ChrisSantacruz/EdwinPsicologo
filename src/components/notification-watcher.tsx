@@ -150,7 +150,7 @@ export function NotificationWatcher() {
               const n = new Notification(item.title, {
                 body: item.body,
                 tag: item.id,
-                icon: "/icons/icon.png",
+                icon: "/favicon-32.png",
                 requireInteraction: true,
               });
               n.onclick = () => {
