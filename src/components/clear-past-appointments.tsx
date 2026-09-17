@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 export function ClearPastAppointmentsButton({
   count,
@@ -9,6 +10,7 @@ export function ClearPastAppointmentsButton({
   count: number;
   action: () => Promise<{ ok?: boolean; deleted?: number; error?: string }>;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -33,6 +35,7 @@ export function ClearPastAppointmentsButton({
               return;
             }
             setMsg(`Se eliminaron ${res.deleted ?? 0}`);
+            router.refresh();
           });
         }}
       >
