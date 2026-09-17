@@ -21,7 +21,6 @@ import { upsertCalendarEvent, deleteCalendarEvent } from "@/lib/calendar";
 import { normalizePhone, upsertPatient } from "@/lib/patients";
 import { parseContactsCsv } from "@/lib/csv";
 import { bogotaDateTime } from "@/lib/time";
-import { isWhatsAppConfigured } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/app-url";
 import {
   appointmentPublicPath,
