@@ -26,7 +26,18 @@ export const STATUS_LABEL: Record<string, string> = {
 export const PRACTICE = {
   professionalName: "Edwin Mideros Meza",
   title: "Psicólogo Clínico",
-  phone: process.env.PRACTICE_PHONE ?? "3028124298",
-  nequi: process.env.NEQUI_NUMBER ?? "3005116999",
+  /** WhatsApp de contacto (paciente → consultorio). Pruebas: 3028124298 */
+  phone: process.env.PRACTICE_PHONE?.trim() || "3028124298",
+  nequi: process.env.NEQUI_NUMBER?.trim() || "3005116999",
   city: "Pasto, Nariño – Colombia",
 };
+
+/**
+ * Destino del mensaje/enlace de invitación (admin → paciente).
+ * En pruebas WHATSAPP_INVITE_TO fuerza el número de test.
+ */
+export function whatsappInviteRecipient(patientPhone: string) {
+  const testTo = process.env.WHATSAPP_INVITE_TO?.trim();
+  if (testTo) return testTo;
+  return patientPhone;
+}

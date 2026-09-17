@@ -22,6 +22,7 @@ import {
 import { isWhatsAppConfigured } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/app-url";
 import { appointmentPublicPath } from "@/lib/appointment-token";
+import { whatsappInviteRecipient } from "@/lib/constants";
 
 export default async function AppointmentDetailPage({
   params,
@@ -57,7 +58,8 @@ export default async function AppointmentDetailPage({
       })
     : null;
   const message = confirmMessage ?? appointment.whatsappMessage ?? "";
-  const waPatient = whatsappLink(appointment.patientPhone, message);
+  const invitePhone = whatsappInviteRecipient(appointment.patientPhone);
+  const waPatient = whatsappLink(invitePhone, message);
   const waConfigured = isWhatsAppConfigured();
 
   return (

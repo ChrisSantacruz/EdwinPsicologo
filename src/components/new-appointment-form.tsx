@@ -22,7 +22,9 @@ export function NewAppointmentForm({
   const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
   const [price, setPrice] = useState(services[0]?.defaultPrice ?? 200000);
   const [patientName, setPatientName] = useState(initialPatient?.name ?? "");
-  const [patientPhone, setPatientPhone] = useState(initialPatient?.phone ?? "");
+  const [patientPhone, setPatientPhone] = useState(
+    initialPatient?.phone ?? "3028124298",
+  );
   const [query, setQuery] = useState(initialPatient?.name ?? "");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
