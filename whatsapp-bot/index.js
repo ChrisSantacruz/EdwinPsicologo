@@ -22,6 +22,8 @@ const { useMongoAuthState, clearMongoAuthState } = require("./mongoAuth");
 const MONGO_URI = process.env.MONGO_URI;
 const PORT = Number(process.env.PORT || 3001);
 const SESSION_ID = process.env.WA_SESSION_ID || "default";
+/** Marca de build — si en / no aparece, Render aún corre código viejo. */
+const BOT_BUILD = "2026-09-17-no-autoreply-v3";
 
 const logger = pino({ level: process.env.LOG_LEVEL || "info" });
 
@@ -207,6 +209,8 @@ async function main() {
     res.json({
       ok: true,
       service: "edwin-whatsapp-bot",
+      build: BOT_BUILD,
+      autoReply: false,
       whatsapp: waStatus,
       connected: Boolean(sock?.user),
       sessionId: SESSION_ID,
@@ -216,7 +220,7 @@ async function main() {
   });
 
   app.get("/health", (_req, res) => {
-    res.status(200).send("ok");
+    res.status(200).json({ ok: true, build: BOT_BUILD, autoReply: false });
   });
 
   /**
