@@ -71,7 +71,7 @@ export default async function AdminDashboardPage() {
           <h2 className="font-display text-3xl font-semibold text-ink">Agenda</h2>
           <p className="mt-1 text-sm text-muted">
             Hoy y mañana
-            {waReady ? " · WhatsApp listo" : " · WhatsApp: abrir desde cada cita"}
+            {waReady ? " · WhatsApp vinculado" : " · WhatsApp: abrir desde cada cita"}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
