@@ -24,6 +24,9 @@ import { getAppUrl } from "@/lib/app-url";
 import { appointmentPublicPath } from "@/lib/appointment-token";
 import { whatsappInviteRecipient } from "@/lib/constants";
 
+/** Enviar por bot puede esperar despertar de Render + ready post-QR. */
+export const maxDuration = 60;
+
 export default async function AppointmentDetailPage({
   params,
   searchParams,

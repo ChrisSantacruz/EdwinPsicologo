@@ -70,7 +70,8 @@ export default async function AjustesPage({
       <div className="ios-card space-y-4 p-5">
         <h3 className="font-semibold text-ink">WhatsApp</h3>
         <p className="text-sm text-muted">
-          Vincula tu celular una vez. Después puedes enviar invitaciones desde cada cita.
+          Vincula tu celular una vez. Después puedes enviar invitaciones desde cada cita con
+          “Enviar desde el servidor”.
         </p>
         {waReady || botReady ? (
           <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">

@@ -41,7 +41,7 @@ export function SendWhatsAppApiButton({
           })
         }
       >
-        {pending ? "Enviando…" : "Enviar"}
+        {pending ? "Enviando… (puede tardar unos segundos)" : "Enviar"}
       </button>
       {message ? <p className="text-sm font-medium text-success">{message}</p> : null}
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}

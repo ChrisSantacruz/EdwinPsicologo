@@ -15,7 +15,7 @@ export function isWhatsAppCloudConfigured() {
   );
 }
 
-/** Bot Render o Meta Cloud API — cualquiera habilita “Enviar mensaje”. */
+/** Bot Render o Meta Cloud API — habilita “Enviar desde el servidor”. */
 export function isWhatsAppConfigured() {
   return isWhatsAppBotConfigured() || isWhatsAppCloudConfigured();
 }
@@ -35,41 +35,62 @@ async function sendViaBot(toPhone: string, body: string): Promise<SendResult> {
   const base = process.env.WHATSAPP_BOT_URL!.replace(/\/$/, "");
   const secret = process.env.WHATSAPP_BOT_SECRET!;
 
-  const res = await fetch(`${base}/send`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-bot-secret": secret,
-    },
-    body: JSON.stringify({
-      to: toWhatsAppRecipient(toPhone),
-      text: body,
-    }),
-  });
+  const transient = new Set(["whatsapp_not_connected", "whatsapp_warming_up"]);
+  let lastError = "No se pudo enviar. Reintenta o usa Abrir WhatsApp.";
 
-  const data = (await res.json().catch(() => ({}))) as {
-    ok?: boolean;
-    messageId?: string;
-    error?: string;
-    status?: string;
-  };
+  // Render free + post-QR: el bot puede tardar en despertar / marcar sendReady
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const res = await fetch(`${base}/send`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-bot-secret": secret,
+        },
+        body: JSON.stringify({
+          to: toWhatsAppRecipient(toPhone),
+          text: body,
+        }),
+      });
 
-  if (!res.ok || !data.ok) {
-    const hint =
-      data.error === "whatsapp_not_connected"
-        ? " WhatsApp no está vinculado: abre WhatsApp en el panel y vuelve a escanear el código."
-        : "";
-    return {
-      ok: false,
-      error:
-        data.error === "whatsapp_not_connected"
-          ? `No se pudo enviar.${hint}`
-          : `No se pudo enviar el mensaje. Intenta de nuevo o usa Abrir en WhatsApp.${hint}`,
-      mode: "none",
-    };
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        messageId?: string;
+        error?: string;
+        status?: string;
+      };
+
+      if (res.ok && data.ok) {
+        return { ok: true, messageId: data.messageId ?? "sent", mode: "bot" };
+      }
+
+      if (data.error === "whatsapp_not_connected") {
+        lastError =
+          "WhatsApp no está vinculado: abre WhatsApp en el panel y vuelve a escanear el código.";
+      } else if (data.error === "whatsapp_warming_up") {
+        lastError =
+          "WhatsApp acaba de reconectar. Espera unos segundos y reintenta, o usa Abrir WhatsApp.";
+      } else if (data.error) {
+        lastError = "No se pudo enviar. Reintenta o usa Abrir WhatsApp.";
+      }
+
+      if (data.error && transient.has(data.error) && attempt < 3) {
+        await new Promise((r) => setTimeout(r, 2_000 * attempt));
+        continue;
+      }
+
+      return { ok: false, error: lastError, mode: "none" };
+    } catch {
+      lastError =
+        "No se pudo contactar WhatsApp. Espera un momento (Render puede estar despertando) y reintenta.";
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, 2_000 * attempt));
+        continue;
+      }
+    }
   }
 
-  return { ok: true, messageId: data.messageId ?? "sent", mode: "bot" };
+  return { ok: false, error: lastError, mode: "none" };
 }
 
 export async function sendWhatsAppText(
@@ -217,7 +238,6 @@ export async function sendAppointmentWhatsApp(input: {
   const textResult = await sendWhatsAppText(input.toPhone, input.fullMessage);
   if (textResult.ok) return textResult;
 
-  // Si falló el bot, no intentes Meta a menos que esté configurado
   if (isWhatsAppBotConfigured() && !isWhatsAppCloudConfigured()) {
     return textResult;
   }

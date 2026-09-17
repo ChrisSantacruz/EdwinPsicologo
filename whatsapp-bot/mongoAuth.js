@@ -200,7 +200,8 @@ async function useMongoAuthState(sessionId = "default") {
               if (type === "app-state-sync-key" && value) {
                 value = proto.Message.AppStateSyncKeyData.fromObject(value);
               }
-              data[id] = value;
+              // Igual que useMultiFileAuthState: no exponer null
+              if (value) data[id] = value;
             }),
           );
           return data;
@@ -232,9 +233,23 @@ async function clearMongoAuthState(sessionId = "default") {
   await WhatsAppAuth.deleteMany({ _id: { $regex: `^${prefix}` } });
 }
 
+/**
+ * Limpia solo el estado de app-sync (versiones/claves) sin borrar creds/Signal.
+ * Útil cuando Baileys entra en loop "failed to find key to decode patch".
+ */
+async function clearAppStateSyncState(sessionId = "default") {
+  const prefix = `baileys:${sessionId}:`;
+  await WhatsAppAuth.deleteMany({
+    _id: {
+      $regex: `^${prefix}app-state-sync-(key|version)-`,
+    },
+  });
+}
+
 module.exports = {
   useMongoAuthState,
   clearMongoAuthState,
+  clearAppStateSyncState,
   WhatsAppAuth,
   WhatsAppSentMessage,
   acquireSessionLease,

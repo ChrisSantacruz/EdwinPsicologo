@@ -33,7 +33,7 @@ const loadSentMessage =
 const MONGO_URI = process.env.MONGO_URI;
 const PORT = Number(process.env.PORT || 3001);
 const SESSION_ID = process.env.WA_SESSION_ID || "default";
-const BOT_BUILD = "2026-09-17-no-lease-v10";
+const BOT_BUILD = "2026-09-17-send-ready-v11";
 
 const logger = pino({ level: process.env.LOG_LEVEL || "error" });
 const baileysLogger = logger.child({ module: "baileys" });
@@ -50,11 +50,17 @@ let isConnecting = false;
 let shuttingDown = false;
 let reconnectTimer = null;
 let connectedAt = 0;
-const SEND_WARMUP_MS = 5_000;
+/** Tras open, esperar pending notifications (o este tope) antes de enviar. */
+const SEND_READY_FALLBACK_MS = 2_500;
+/** Cuánto puede esperar /send a que la sesión quede lista (Vercel ~60s max). */
+const SEND_WAIT_READY_MS = 12_000;
 
 let latestQr = null;
 let latestQrAt = null;
 let waStatus = "starting";
+/** true cuando open + (pending notifications o fallback). */
+let sendReady = false;
+let sendReadyTimer = null;
 
 const recentMessages = new Map();
 const MAX_RECENT = 200;
@@ -76,6 +82,35 @@ function clearReconnectTimer() {
   }
 }
 
+function clearSendReadyTimer() {
+  if (sendReadyTimer) {
+    clearTimeout(sendReadyTimer);
+    sendReadyTimer = null;
+  }
+}
+
+function markSendNotReady() {
+  sendReady = false;
+  clearSendReadyTimer();
+}
+
+function markSendReady(reason) {
+  if (sendReady) return;
+  sendReady = true;
+  clearSendReadyTimer();
+  console.log(`✅ Listo para enviar (${reason}). Build`, BOT_BUILD);
+}
+
+function scheduleSendReadyFallback() {
+  clearSendReadyTimer();
+  sendReadyTimer = setTimeout(() => {
+    sendReadyTimer = null;
+    if (sock?.user && waStatus === "connected") {
+      markSendReady("fallback");
+    }
+  }, SEND_READY_FALLBACK_MS);
+}
+
 function scheduleReconnect(delayMs) {
   clearReconnectTimer();
   reconnectTimer = setTimeout(() => {
@@ -84,9 +119,25 @@ function scheduleReconnect(delayMs) {
   }, delayMs);
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitUntilSendReady(timeoutMs = SEND_WAIT_READY_MS) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (shuttingDown) return false;
+    if (sock?.user && waStatus === "connected" && sendReady) return true;
+    await sleep(400);
+  }
+  return Boolean(sock?.user && waStatus === "connected" && sendReady);
+}
+
 async function endSocketQuietly() {
   const prev = sock;
   sock = null;
+  markSendNotReady();
+  connectedAt = 0;
   if (!prev) return;
   try {
     prev.ev?.removeAllListeners?.();
@@ -131,7 +182,8 @@ async function startWhatsApp() {
       printQRInTerminal: false,
       markOnlineOnConnect: false,
       syncFullHistory: false,
-      fireInitQueries: false,
+      // props/blocklist ayudan a estabilizar la sesión tras el QR
+      fireInitQueries: true,
       shouldSyncHistoryMessage: () => false,
       generateHighQualityLinkPreview: false,
       keepAliveIntervalMs: 25_000,
@@ -168,12 +220,14 @@ async function startWhatsApp() {
     });
 
     sock.ev.on("connection.update", async (update) => {
-      const { connection, lastDisconnect, qr } = update;
+      const { connection, lastDisconnect, qr, receivedPendingNotifications } =
+        update;
 
       if (qr) {
         latestQr = qr;
         latestQrAt = new Date();
         waStatus = "waiting_qr";
+        markSendNotReady();
         console.log("\n======= ESCANEA EL QR =======");
         console.log("Abre /qr en el navegador\n");
         try {
@@ -189,6 +243,8 @@ async function startWhatsApp() {
         latestQr = null;
         connectedAt = Date.now();
         waStatus = "connected";
+        markSendNotReady();
+        scheduleSendReadyFallback();
         console.log("✅ WhatsApp conectado. Build", BOT_BUILD);
         try {
           await sock.sendPresenceUpdate("available");
@@ -197,9 +253,15 @@ async function startWhatsApp() {
         }
       }
 
+      // Sesión usable para enviar (Baileys ya procesó notificaciones iniciales)
+      if (receivedPendingNotifications && sock?.user && waStatus === "connected") {
+        markSendReady("pending_notifications");
+      }
+
       if (connection === "close") {
         isConnecting = false;
         waStatus = "disconnected";
+        markSendNotReady();
         connectedAt = 0;
 
         const statusCode =
@@ -242,6 +304,7 @@ async function startWhatsApp() {
   } catch (err) {
     isConnecting = false;
     waStatus = "error";
+    markSendNotReady();
     console.error("❌ Error iniciando WhatsApp:", err);
     await endSocketQuietly();
     if (!shuttingDown && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
@@ -264,6 +327,7 @@ async function main() {
       allowBotSend: true,
       whatsapp: waStatus,
       connected: Boolean(sock?.user),
+      sendReady: Boolean(sock?.user && sendReady),
       sessionId: SESSION_ID,
       qrPage: "/qr",
       hasPendingQr: Boolean(latestQr),
@@ -291,6 +355,7 @@ async function main() {
       latestQr = null;
       latestQrAt = null;
       waStatus = "logging_out";
+      markSendNotReady();
       clearReconnectTimer();
 
       if (sock) {
@@ -373,20 +438,17 @@ async function main() {
       return res.status(401).json({ ok: false, error: "unauthorized" });
     }
 
-    if (!sock?.user || waStatus !== "connected") {
-      return res.status(503).json({
-        ok: false,
-        error: "whatsapp_not_connected",
-        status: waStatus,
-      });
-    }
-
-    if (connectedAt && Date.now() - connectedAt < SEND_WARMUP_MS) {
-      return res.status(503).json({
-        ok: false,
-        error: "whatsapp_warming_up",
-        hint: "Espera unos segundos o usa Abrir WhatsApp.",
-      });
+    // Tras QR / hibernate: esperar a que la sesión esté lista en vez de fallar al toque
+    if (!sock?.user || waStatus !== "connected" || !sendReady) {
+      const ready = await waitUntilSendReady(SEND_WAIT_READY_MS);
+      if (!ready || !sock?.user || waStatus !== "connected") {
+        return res.status(503).json({
+          ok: false,
+          error: "whatsapp_not_connected",
+          status: waStatus,
+          sendReady,
+        });
+      }
     }
 
     const toRaw = String(req.body?.to ?? "").trim();
@@ -412,7 +474,7 @@ async function main() {
 
       let sent;
       let lastErr;
-      for (let attempt = 1; attempt <= 2; attempt += 1) {
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
         try {
           sent = await sock.sendMessage(jid, { text, linkPreview: null });
           lastErr = null;
@@ -420,7 +482,7 @@ async function main() {
         } catch (err) {
           lastErr = err;
           console.error(`Error /send intento ${attempt}:`, err.message);
-          if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
+          if (attempt < 3) await sleep(1200 * attempt);
         }
       }
 
