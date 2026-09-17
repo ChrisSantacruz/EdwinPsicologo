@@ -28,14 +28,17 @@ export async function GET() {
       build?: string;
       autoReply?: boolean;
     };
+
+    const build = data.build ?? null;
+    const outdated = data.autoReply !== false;
+
     return NextResponse.json({
       ok: true,
       connected: Boolean(data.connected),
       whatsapp: data.whatsapp,
       hasPendingQr: Boolean(data.hasPendingQr),
-      build: data.build ?? null,
-      // Si no trae autoReply:false, Render aún tiene el bot viejo que responde “hola”
-      outdated: data.autoReply !== false,
+      build,
+      outdated,
     });
   } catch {
     return NextResponse.json({

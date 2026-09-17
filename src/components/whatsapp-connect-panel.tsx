@@ -75,7 +75,7 @@ export function WhatsAppConnectPanel() {
         </Link>
         <h2 className="mt-2 font-display text-3xl font-semibold text-ink">WhatsApp</h2>
         <p className="mt-1 text-sm text-muted">
-          Vincula el celular del consultorio. Después los mensajes salen desde aquí.
+          Vincula el celular. Luego en cada cita puedes usar Enviar o Abrir WhatsApp.
         </p>
       </div>
 
@@ -86,23 +86,17 @@ export function WhatsAppConnectPanel() {
           </div>
           <h3 className="font-display text-2xl font-semibold text-ink">WhatsApp conectado</h3>
           <p className="text-sm text-muted">
-            Ya puedes enviar mensajes a tus pacientes desde cada cita.
+            Listo para enviar desde el panel. No hace falta escanear QR.
           </p>
           {status?.outdated ? (
             <p className="rounded-2xl bg-burgundy/10 px-4 py-3 text-left text-sm text-burgundy">
-              El bot en Render está <strong>desactualizado</strong> (aún responde “Soy el bot…”).
-              En{" "}
-              <a
-                href="https://dashboard.render.com"
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold underline"
-              >
-                dashboard.render.com
-              </a>{" "}
-              → servicio <strong>edwinpsicologo</strong> → <strong>Manual Deploy</strong> →{" "}
-              <strong>Clear build cache &amp; deploy</strong>. No uses Logout; la sesión se
-              mantiene.
+              El bot en Render puede estar desactualizado. Manual Deploy → Clear build cache.
+              {status.build ? (
+                <>
+                  {" "}
+                  Build: <code>{status.build}</code>
+                </>
+              ) : null}
             </p>
           ) : null}
           <Link href="/admin" className="ios-btn ios-btn-primary w-full">
@@ -117,19 +111,19 @@ export function WhatsAppConnectPanel() {
             {pending ? "Limpiando…" : "Cambiar de WhatsApp (nuevo QR)"}
           </button>
           <p className="text-xs text-muted">
-            Usa esto para desvincular el número de prueba y escanear el de Edwin.
+            Solo si quieres vincular otro número. Cierra la sesión actual.
           </p>
         </div>
       ) : (
         <div className="ios-card space-y-4 p-6">
           <ol className="list-decimal space-y-2 pl-5 text-sm text-muted">
-            <li>Abre WhatsApp en el celular de Edwin</li>
+            <li>Abre WhatsApp en el celular de prueba</li>
             <li>Menú → Dispositivos vinculados → Vincular dispositivo</li>
             <li>Escanea el código de abajo</li>
           </ol>
 
           <div className="flex min-h-[280px] items-center justify-center rounded-2xl bg-canvas p-4">
-            {waitingQr || status?.ok ? (
+            {waitingQr ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 key={tick}
@@ -140,7 +134,9 @@ export function WhatsAppConnectPanel() {
             ) : (
               <p className="px-4 text-center text-sm text-muted">
                 {status?.error ??
-                  "Preparando el código… Si tarda, toca “Pedir QR nuevo” o espera unos segundos (Render free se despierta lento)."}
+                  (status?.ok
+                    ? "Esperando código QR… Si no aparece, toca “Pedir QR nuevo” (Render free tarda en despertar)."
+                    : "Preparando…")}
               </p>
             )}
           </div>
@@ -155,7 +151,7 @@ export function WhatsAppConnectPanel() {
           </button>
 
           <p className="text-xs text-muted">
-            El código se actualiza solo. Cuando quede vinculado, esta pantalla cambiará a “conectado”.
+            El código se actualiza solo. Cuando quede vinculado, verás “conectado”.
           </p>
         </div>
       )}

@@ -9,9 +9,31 @@ export async function GET() {
   if (!base) return new NextResponse("Bot no configurado", { status: 503 });
 
   try {
+    // Si ya está conectado, no hay QR que mostrar
+    const statusRes = await fetch(`${base}/`, { cache: "no-store" });
+    if (statusRes.ok) {
+      const data = (await statusRes.json()) as {
+        connected?: boolean;
+        hasPendingQr?: boolean;
+      };
+      if (data.connected && !data.hasPendingQr) {
+        return NextResponse.json(
+          { ok: true, connected: true, message: "WhatsApp ya está conectado" },
+          { status: 200 },
+        );
+      }
+    }
+
     const res = await fetch(`${base}/qr.png`, { cache: "no-store" });
     if (!res.ok) {
-      return new NextResponse("Código no disponible aún", { status: 404 });
+      return NextResponse.json(
+        {
+          ok: false,
+          waiting: true,
+          message: "QR aún no listo. Espera o pide un QR nuevo.",
+        },
+        { status: 202 },
+      );
     }
     const buf = Buffer.from(await res.arrayBuffer());
     return new NextResponse(buf, {
