@@ -18,6 +18,7 @@
     "@whiskeysockets/baileys": "^6.7.18",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "link-preview-js": "^3.2.0",
     "mongoose": "^8.12.1",
     "pino": "^9.6.0",
     "qrcode": "^1.5.4",

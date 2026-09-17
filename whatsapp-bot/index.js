@@ -1,9 +1,13 @@
 /**
  * Bot WhatsApp (Baileys) + sesión en MongoDB Atlas
  * Pensado para Render free: el disco se borra, Atlas no.
+ *
+ * No auto-responde a pacientes. /send desde el panel sí.
+ * Persistimos mensajes enviados para reintentos de cifrado (evita “Esperando el mensaje…”).
  */
 require("dotenv").config();
 
+const crypto = require("crypto");
 const express = require("express");
 const mongoose = require("mongoose");
 const pino = require("pino");
@@ -17,13 +21,25 @@ const {
   makeCacheableSignalKeyStore,
 } = require("@whiskeysockets/baileys");
 
-const { useMongoAuthState, clearMongoAuthState } = require("./mongoAuth");
+const {
+  useMongoAuthState,
+  clearMongoAuthState,
+  acquireSessionLease,
+  renewSessionLease,
+  releaseSessionLease,
+  rememberSentMessage,
+  loadSentMessage,
+} = require("./mongoAuth");
 
 const MONGO_URI = process.env.MONGO_URI;
 const PORT = Number(process.env.PORT || 3001);
 const SESSION_ID = process.env.WA_SESSION_ID || "default";
 /** Marca de build — si en / no aparece, Render aún corre código viejo. */
-const BOT_BUILD = "2026-09-17-hibernate-safe-v4";
+const BOT_BUILD = "2026-09-17-link-preview-v8";
+const INSTANCE_ID =
+  process.env.RENDER_INSTANCE_ID ||
+  process.env.HOSTNAME ||
+  crypto.randomBytes(8).toString("hex");
 
 // En Render free Baileys mete demasiado ruido (hasta keys) con level=info
 const logger = pino({ level: process.env.LOG_LEVEL || "error" });
@@ -39,22 +55,83 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 15;
 let isConnecting = false;
 let shuttingDown = false;
+let reconnectTimer = null;
+let leaseTimer = null;
+/** Tras un open reciente, no enviar (sesión Signal aún inestable). */
+let connectedAt = 0;
+const SEND_WARMUP_MS = 8_000;
 
 /** Último QR pendiente de escanear (para /qr en el navegador). */
 let latestQr = null;
 let latestQrAt = null;
 let waStatus = "starting";
 
-/** Cache de mensajes enviados — evita “Esperando el mensaje…” al reintentar cifrado. */
+/** Cache en RAM + Mongo — evita “Esperando el mensaje…” al reintentar cifrado. */
 const recentMessages = new Map();
 const MAX_RECENT = 200;
 
-function rememberMessage(id, message) {
+function rememberMessage(id, message, remoteJid) {
   if (!id || !message) return;
   recentMessages.set(id, message);
   if (recentMessages.size > MAX_RECENT) {
     const first = recentMessages.keys().next().value;
     recentMessages.delete(first);
+  }
+  void rememberSentMessage(SESSION_ID, id, message, remoteJid);
+}
+
+function clearReconnectTimer() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}
+
+function scheduleReconnect(delayMs) {
+  clearReconnectTimer();
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (!shuttingDown) startWhatsApp();
+  }, delayMs);
+}
+
+function stopLeaseHeartbeat() {
+  if (leaseTimer) {
+    clearInterval(leaseTimer);
+    leaseTimer = null;
+  }
+}
+
+function startLeaseHeartbeat() {
+  stopLeaseHeartbeat();
+  leaseTimer = setInterval(() => {
+    void renewSessionLease(SESSION_ID, INSTANCE_ID).then((ok) => {
+      if (!ok) {
+        console.warn("⚠️ Perdimos el lease de sesión; cerrando socket para evitar conflicto.");
+        try {
+          sock?.end?.(undefined);
+        } catch {
+          // ignore
+        }
+      }
+    });
+  }, 15_000);
+}
+
+async function endSocketQuietly() {
+  stopLeaseHeartbeat();
+  const prev = sock;
+  sock = null;
+  if (!prev) return;
+  try {
+    prev.ev?.removeAllListeners?.();
+  } catch {
+    // ignore
+  }
+  try {
+    prev.end?.(undefined);
+  } catch {
+    // ignore
   }
 }
 
@@ -70,8 +147,22 @@ async function startWhatsApp() {
   if (isConnecting || shuttingDown) return;
   isConnecting = true;
   waStatus = "connecting";
+  clearReconnectTimer();
 
   try {
+    const gotLease = await acquireSessionLease(SESSION_ID, INSTANCE_ID);
+    if (!gotLease) {
+      isConnecting = false;
+      waStatus = "waiting_lease";
+      console.warn(
+        "⏳ Otra instancia tiene la sesión WhatsApp. Reintento en 20s (evita conflict/replaced).",
+      );
+      scheduleReconnect(20_000);
+      return;
+    }
+
+    await endSocketQuietly();
+
     const { state, saveCreds } = await useMongoAuthState(SESSION_ID);
     const { version, isLatest } = await fetchLatestBaileysVersion();
     console.log(`📦 Baileys WA v${version.join(".")} (latest: ${isLatest})`);
@@ -90,17 +181,21 @@ async function startWhatsApp() {
       fireInitQueries: false,
       shouldSyncHistoryMessage: () => false,
       generateHighQualityLinkPreview: false,
-      keepAliveIntervalMs: 20_000,
+      keepAliveIntervalMs: 25_000,
       connectTimeoutMs: 90_000,
       defaultQueryTimeoutMs: 90_000,
-      retryRequestDelayMs: 500,
-      maxMsgRetryCount: 5,
+      retryRequestDelayMs: 750,
+      maxMsgRetryCount: 3,
       // Crítico: sin esto WhatsApp muestra “Esperando el mensaje…”
       getMessage: async (key) => {
         if (!key?.id) return undefined;
-        return recentMessages.get(key.id);
+        const cached = recentMessages.get(key.id);
+        if (cached) return cached;
+        return loadSentMessage(SESSION_ID, key.id);
       },
     });
+
+    startLeaseHeartbeat();
 
     sock.ev.on("creds.update", async () => {
       try {
@@ -110,11 +205,11 @@ async function startWhatsApp() {
       }
     });
 
-    // Guardar también mensajes propios por si WA pide reintento
+    // Guardar mensajes propios (panel /send y acks) para reintentos de cifrado
     sock.ev.on("messages.upsert", ({ messages }) => {
       for (const msg of messages) {
         if (msg?.key?.fromMe && msg.key.id && msg.message) {
-          rememberMessage(msg.key.id, msg.message);
+          rememberMessage(msg.key.id, msg.message, msg.key.remoteJid);
         }
       }
     });
@@ -141,6 +236,7 @@ async function startWhatsApp() {
         reconnectAttempts = 0;
         isConnecting = false;
         latestQr = null;
+        connectedAt = Date.now();
         waStatus = "connected";
         console.log("✅ WhatsApp conectado. Sesión persistida en MongoDB Atlas.");
         try {
@@ -153,6 +249,9 @@ async function startWhatsApp() {
       if (connection === "close") {
         isConnecting = false;
         waStatus = "disconnected";
+        connectedAt = 0;
+        stopLeaseHeartbeat();
+
         const statusCode =
           lastDisconnect?.error instanceof Boom
             ? lastDisconnect.error.output?.statusCode
@@ -162,7 +261,14 @@ async function startWhatsApp() {
           statusCode === DisconnectReason.loggedOut ||
           statusCode === DisconnectReason.forbidden;
 
-        console.warn(`⚠️ Conexión cerrada. code=${statusCode} loggedOut=${loggedOut}`);
+        const replaced =
+          statusCode === DisconnectReason.connectionReplaced || statusCode === 440;
+
+        console.warn(
+          `⚠️ Conexión cerrada. code=${statusCode} loggedOut=${loggedOut} replaced=${replaced}`,
+        );
+
+        await endSocketQuietly();
 
         if (loggedOut) {
           console.warn(
@@ -171,39 +277,49 @@ async function startWhatsApp() {
           latestQr = null;
           try {
             await clearMongoAuthState(SESSION_ID);
+            await releaseSessionLease(SESSION_ID, INSTANCE_ID);
           } catch (err) {
             console.error("No se pudo limpiar auth:", err.message);
           }
           reconnectAttempts = 0;
-          setTimeout(() => {
-            if (!shuttingDown) startWhatsApp();
-          }, 2000);
+          scheduleReconnect(2000);
           return;
         }
 
-        if (shuttingDown) return;
+        if (shuttingDown) {
+          await releaseSessionLease(SESSION_ID, INSTANCE_ID);
+          return;
+        }
 
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
           console.error("❌ Máximo de reintentos alcanzado. Revisar logs / reiniciar servicio.");
+          await releaseSessionLease(SESSION_ID, INSTANCE_ID);
           return;
         }
 
         reconnectAttempts += 1;
-        const delay = Math.min(1000 * 1.6 ** reconnectAttempts, 60_000);
-        console.log(`🔄 Reconectando en ${Math.round(delay)}ms (intento ${reconnectAttempts})…`);
-        setTimeout(() => {
-          if (!shuttingDown) startWhatsApp();
-        }, delay);
+
+        // 440 = otra sesión tomó el socket. Reconectar tarde evita pelear
+        // (doble instancia / WhatsApp Web) y genera “Esperando el mensaje…”.
+        const delay = replaced
+          ? Math.min(8_000 * reconnectAttempts, 90_000)
+          : Math.min(1000 * 1.6 ** reconnectAttempts, 60_000);
+
+        console.log(
+          `🔄 Reconectando en ${Math.round(delay)}ms (intento ${reconnectAttempts})…`,
+        );
+        scheduleReconnect(delay);
       }
     });
   } catch (err) {
     isConnecting = false;
     waStatus = "error";
     console.error("❌ Error iniciando WhatsApp:", err);
+    await endSocketQuietly();
     if (!shuttingDown && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
       reconnectAttempts += 1;
       const delay = Math.min(3000 * reconnectAttempts, 30_000);
-      setTimeout(() => startWhatsApp(), delay);
+      scheduleReconnect(delay);
     }
   }
 }
@@ -218,6 +334,7 @@ async function main() {
       service: "edwin-whatsapp-bot",
       build: BOT_BUILD,
       autoReply: false,
+      allowBotSend: true,
       whatsapp: waStatus,
       connected: Boolean(sock?.user),
       sessionId: SESSION_ID,
@@ -227,7 +344,12 @@ async function main() {
   });
 
   app.get("/health", (_req, res) => {
-    res.status(200).json({ ok: true, build: BOT_BUILD, autoReply: false });
+    res.status(200).json({
+      ok: true,
+      build: BOT_BUILD,
+      autoReply: false,
+      allowBotSend: true,
+    });
   });
 
   /**
@@ -251,6 +373,7 @@ async function main() {
       latestQr = null;
       latestQrAt = null;
       waStatus = "logging_out";
+      clearReconnectTimer();
 
       if (sock) {
         try {
@@ -266,12 +389,11 @@ async function main() {
       }
 
       await clearMongoAuthState(SESSION_ID);
+      await releaseSessionLease(SESSION_ID, INSTANCE_ID);
       reconnectAttempts = 0;
       isConnecting = false;
 
-      setTimeout(() => {
-        if (!shuttingDown) startWhatsApp();
-      }, 1500);
+      scheduleReconnect(1500);
 
       return res.json({
         ok: true,
@@ -334,6 +456,14 @@ async function main() {
       });
     }
 
+    if (connectedAt && Date.now() - connectedAt < SEND_WARMUP_MS) {
+      return res.status(503).json({
+        ok: false,
+        error: "whatsapp_warming_up",
+        hint: "La sesión acaba de reconectar. Espera unos segundos o usa Abrir WhatsApp.",
+      });
+    }
+
     const toRaw = String(req.body?.to ?? "").trim();
     const text = String(req.body?.text ?? "").trim();
     if (!toRaw || !text) {
@@ -360,7 +490,8 @@ async function main() {
       let lastErr;
       for (let attempt = 1; attempt <= 2; attempt += 1) {
         try {
-          sent = await sock.sendMessage(jid, { text });
+          // linkPreview: null evita fallar si falta metadata del link de la cita
+          sent = await sock.sendMessage(jid, { text, linkPreview: null });
           lastErr = null;
           break;
         } catch (err) {
@@ -378,7 +509,7 @@ async function main() {
       }
 
       const mid = sent?.key?.id;
-      rememberMessage(mid, sent?.message ?? { conversation: text });
+      rememberMessage(mid, sent?.message ?? { conversation: text }, jid);
       console.log(`📤 Enviado a ${jid}`);
       return res.json({
         ok: true,
@@ -472,6 +603,7 @@ ol{text-align:left;color:#444}
 
   app.listen(PORT, () => {
     console.log(`🌐 HTTP listo en puerto ${PORT}`);
+    console.log(`🏷  Build ${BOT_BUILD}`);
     console.log("📱 Escanea el QR en: /qr");
   });
 
@@ -495,11 +627,14 @@ async function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log("Apagando (SIGTERM/SIGINT)…");
+  clearReconnectTimer();
+  stopLeaseHeartbeat();
   try {
     sock?.end?.(undefined);
   } catch {
     // ignore
   }
+  await releaseSessionLease(SESSION_ID, INSTANCE_ID);
   await mongoose.disconnect().catch(() => {});
   process.exit(0);
 }
