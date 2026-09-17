@@ -37,6 +37,10 @@ export async function POST(request: Request) {
     const contactName = change?.contacts?.[0]?.profile?.name;
 
     if (message?.from) {
+      const { notificationsEnabled } = await import("@/lib/notifications-flag");
+      if (!notificationsEnabled()) {
+        return NextResponse.json({ ok: true });
+      }
       const from = message.from;
       const text = message.text?.body ?? `(${message.type})`;
       await prisma.notification.create({
