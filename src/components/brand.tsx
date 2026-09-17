@@ -9,16 +9,16 @@ export function BrandMark({
 }) {
   return (
     <div
-      className={`relative shrink-0 overflow-hidden rounded-full bg-[#1a0505] shadow-lg shadow-[#7A1F2B]/25 ${className}`}
+      className={`relative shrink-0 overflow-hidden rounded-full bg-transparent ${className}`}
       style={{ width: size, height: size }}
       aria-label="Atención psicológica especializada"
     >
       <Image
-        src="/brand-logo.png"
+        src="/brand-logo.png?v=2"
         alt="Atención psicológica especializada"
         width={size}
         height={size}
-        className="h-full w-full object-cover"
+        className="h-full w-full object-contain"
         priority={size >= 64}
       />
     </div>
