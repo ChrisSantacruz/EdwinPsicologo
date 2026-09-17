@@ -26,7 +26,7 @@ export const STATUS_LABEL: Record<string, string> = {
 export const PRACTICE = {
   professionalName: "Edwin Mideros Meza",
   title: "Psicólogo Clínico",
-  phone: process.env.PRACTICE_PHONE ?? "3005116999",
+  phone: process.env.PRACTICE_PHONE ?? "3028124298",
   nequi: process.env.NEQUI_NUMBER ?? "3005116999",
   city: "Pasto, Nariño – Colombia",
 };

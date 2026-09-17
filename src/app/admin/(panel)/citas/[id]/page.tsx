@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { StatusBadge } from "@/components/status-badge";
 import { CopyButton, ConfirmAppointmentButton } from "@/components/client-actions";
 import { EditAppointmentForm } from "@/components/edit-appointment-form";
+import { SendWhatsAppApiButton } from "@/components/send-whatsapp-button";
 import {
   formatAppointmentDate,
   formatAppointmentTime,
@@ -16,7 +17,9 @@ import {
   cancelAppointmentAction,
   confirmAppointmentAction,
   deleteAppointmentAction,
+  sendAppointmentWhatsAppAction,
 } from "@/app/actions";
+import { isWhatsAppConfigured } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/app-url";
 import { appointmentPublicPath } from "@/lib/appointment-token";
 
@@ -55,6 +58,7 @@ export default async function AppointmentDetailPage({
     : null;
   const message = confirmMessage ?? appointment.whatsappMessage ?? "";
   const waPatient = whatsappLink(appointment.patientPhone, message);
+  const waConfigured = isWhatsAppConfigured();
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -156,12 +160,16 @@ export default async function AppointmentDetailPage({
           <pre className="whitespace-pre-wrap rounded-2xl bg-canvas p-4 text-sm leading-relaxed text-ink">
             {message}
           </pre>
+          <SendWhatsAppApiButton
+            configured={waConfigured}
+            action={sendAppointmentWhatsAppAction.bind(null, appointment.id)}
+          />
           <div className="grid gap-2 sm:grid-cols-2">
             <a
               href={waPatient}
               target="_blank"
               rel="noreferrer"
-              className="ios-btn ios-btn-primary"
+              className="ios-btn ios-btn-secondary"
             >
               Abrir WhatsApp
             </a>
