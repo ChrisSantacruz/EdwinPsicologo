@@ -28,37 +28,52 @@ export function getGoogleRedirectUri() {
   return getRedirectUri();
 }
 
-export function getGoogleAuthUrl() {
+export function getGoogleAuthUrl(loginHint?: string) {
   const client = oauthClient();
   if (!client) return null;
 
   return client.generateAuthUrl({
     access_type: "offline",
-    prompt: "consent",
+    prompt: "consent select_account",
+    include_granted_scopes: true,
     scope: ["https://www.googleapis.com/auth/calendar.events"],
+    ...(loginHint?.trim()
+      ? { login_hint: loginHint.trim().toLowerCase() }
+      : {}),
   });
 }
 
+export async function disconnectGoogle() {
+  await prisma.googleToken.deleteMany({ where: { id: "default" } });
+}
+
+/** Guarda tokens; si Google no manda refresh_token (reautorización), conserva el anterior. */
 export async function saveGoogleTokens(code: string) {
   const client = oauthClient();
   if (!client) throw new Error("Google OAuth no configurado");
 
   const { tokens } = await client.getToken(code);
-  if (!tokens.access_token || !tokens.refresh_token) {
-    throw new Error("No se recibieron tokens de Google. Revoca acceso y vuelve a conectar.");
+  if (!tokens.access_token) {
+    throw new Error("No se recibió access_token de Google.");
+  }
+
+  const existing = await prisma.googleToken.findUnique({ where: { id: "default" } });
+  const refreshToken = tokens.refresh_token ?? existing?.refreshToken;
+  if (!refreshToken) {
+    throw new Error("No se recibió refresh_token. Revoca el acceso en Google y vuelve a conectar.");
   }
 
   await prisma.googleToken.upsert({
     where: { id: "default" },
     update: {
       accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
+      refreshToken,
       expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
     },
     create: {
       id: "default",
       accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
+      refreshToken,
       expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
     },
   });

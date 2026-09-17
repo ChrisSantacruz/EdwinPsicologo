@@ -6,7 +6,8 @@ export async function GET() {
   const auth = await requireAdmin();
   if (!auth) redirect("/admin/login");
 
-  const url = getGoogleAuthUrl();
+  // Abre Google ya sugiriendo el correo del consultorio (psicatriz@gmail.com)
+  const url = getGoogleAuthUrl(auth.admin.email);
   if (!url) redirect("/admin/ajustes");
   redirect(url);
 }

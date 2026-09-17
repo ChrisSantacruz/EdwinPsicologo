@@ -10,6 +10,10 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const error = searchParams.get("error");
 
+  if (error === "access_denied") {
+    redirect("/admin/ajustes?google=denied");
+  }
+
   if (error || !code) {
     redirect("/admin/ajustes?google=error");
   }

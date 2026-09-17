@@ -1,23 +1,32 @@
 import Link from "next/link";
-import { getGoogleAuthUrl, isGoogleConnected } from "@/lib/calendar";
+import {
+  getGoogleRedirectUri,
+  isGoogleConnected,
+} from "@/lib/calendar";
 import { PRACTICE } from "@/lib/constants";
 import { formatPhoneDisplay } from "@/lib/format";
 import { isWhatsAppBotConfigured, isWhatsAppConfigured } from "@/lib/whatsapp";
 import { PushTestButton } from "@/components/push-test-button";
+import { requireAdmin } from "@/lib/auth";
+import { disconnectGoogleAction } from "@/app/actions";
+import { redirect } from "next/navigation";
 
 export default async function AjustesPage({
   searchParams,
 }: {
   searchParams: Promise<{ google?: string }>;
 }) {
+  const auth = await requireAdmin();
+  if (!auth) redirect("/admin/login");
+
   const { google } = await searchParams;
   const calendarOk = await isGoogleConnected();
-  const authUrl = getGoogleAuthUrl();
   const googleReady = Boolean(
     process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim(),
   );
   const waReady = isWhatsAppConfigured();
   const botReady = isWhatsAppBotConfigured();
+  const redirectUri = getGoogleRedirectUri();
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
@@ -31,16 +40,29 @@ export default async function AjustesPage({
           ¡Listo! Tu Google Calendar quedó conectado.
         </p>
       ) : null}
+      {google === "disconnected" ? (
+        <p className="rounded-2xl bg-canvas px-4 py-3 text-sm text-muted">
+          Calendar desconectado. Puedes volver a vincularlo con el correo del consultorio.
+        </p>
+      ) : null}
+      {google === "denied" ? (
+        <p className="rounded-2xl bg-burgundy/10 px-4 py-3 text-sm font-medium text-burgundy">
+          Google bloqueó el acceso para este correo. En la pantalla de Google elige{" "}
+          <strong>{auth.admin.email}</strong> (no otro Gmail). Si sigue fallando, hay que
+          autorizar ese correo en Google Cloud (usuarios de prueba).
+        </p>
+      ) : null}
       {google === "error" ? (
         <p className="rounded-2xl bg-burgundy/10 px-4 py-3 text-sm font-medium text-burgundy">
-          No se pudo conectar Calendar. Cierra la ventana de Google e inténtalo de nuevo. Si
-          sigue fallando, escribe a quien te instaló el sistema.
+          No se pudo conectar Calendar. Usa el correo <strong>{auth.admin.email}</strong> y
+          vuelve a intentar.
         </p>
       ) : null}
 
       <div className="ios-card space-y-3 p-5">
         <h3 className="font-semibold text-ink">Tu consultorio</h3>
         <p className="text-sm text-muted">{PRACTICE.professionalName}</p>
+        <p className="text-sm text-muted">Correo panel: {auth.admin.email}</p>
         <p className="text-sm text-muted">WhatsApp / Nequi: {formatPhoneDisplay(PRACTICE.phone)}</p>
         <p className="text-sm text-muted">{PRACTICE.city}</p>
       </div>
@@ -67,7 +89,8 @@ export default async function AjustesPage({
       <div className="ios-card space-y-4 p-5">
         <h3 className="font-semibold text-ink">Google Calendar</h3>
         <p className="text-sm text-muted">
-          Las citas se agregan solas a tu calendario, con avisos antes de cada sesión.
+          Conéctalo con <strong className="text-ink">{auth.admin.email}</strong>. Las citas se
+          agregan solas a esa agenda, con avisos antes de cada sesión.
         </p>
 
         {!googleReady ? (
@@ -75,14 +98,30 @@ export default async function AjustesPage({
             Calendar aún no está disponible. Pide ayuda a quien te instaló el sistema.
           </p>
         ) : calendarOk ? (
-          <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
-            Calendar conectado
-          </p>
-        ) : authUrl ? (
-          <a href={authUrl} className="ios-btn ios-btn-primary w-full">
-            Conectar mi Google Calendar
-          </a>
-        ) : null}
+          <div className="space-y-3">
+            <p className="rounded-2xl bg-success/10 px-4 py-3 text-sm font-medium text-success">
+              Calendar conectado
+            </p>
+            <form action={disconnectGoogleAction}>
+              <button type="submit" className="ios-btn ios-btn-secondary w-full">
+                Desconectar y volver a vincular
+              </button>
+            </form>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <a href="/api/google/connect" className="ios-btn ios-btn-primary w-full">
+              Conectar Google Calendar
+            </a>
+            <p className="text-xs leading-relaxed text-muted">
+              Cuando Google te pregunte, elige <strong>{auth.admin.email}</strong>. Si aparece
+              “acceso denegado”, ese correo debe estar como usuario de prueba en Google Cloud.
+            </p>
+            <p className="break-all rounded-xl bg-canvas px-3 py-2 text-[11px] text-muted">
+              URI de redirección: {redirectUri}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="ios-card space-y-3 p-5">

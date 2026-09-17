@@ -692,3 +692,13 @@ export async function markNotificationReadAction(id: string) {
   revalidatePath("/admin");
   return { ok: true };
 }
+
+export async function disconnectGoogleAction() {
+  const auth = await requireAdmin();
+  if (!auth) redirect("/admin/login");
+
+  const { disconnectGoogle } = await import("@/lib/calendar");
+  await disconnectGoogle();
+  revalidatePath("/admin/ajustes");
+  redirect("/admin/ajustes?google=disconnected");
+}
