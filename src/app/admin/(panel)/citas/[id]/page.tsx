@@ -157,30 +157,27 @@ export default async function AppointmentDetailPage({
           </h3>
           {isConfirmed ? (
             <p className="text-sm text-muted">
-              Usa <strong>Abrir WhatsApp</strong> para el mensaje final (llega bien). El envío del
-              servidor a veces muestra “Esperando el mensaje…” en el celular del paciente.
+              El pago ya está confirmado. Envía el mensaje al paciente.
             </p>
           ) : null}
           <pre className="whitespace-pre-wrap rounded-2xl bg-canvas p-4 text-sm leading-relaxed text-ink">
             {message}
           </pre>
+          <SendWhatsAppApiButton
+            configured={waConfigured}
+            action={sendAppointmentWhatsAppAction.bind(null, appointment.id)}
+          />
           <div className="grid gap-2 sm:grid-cols-2">
             <a
               href={waPatient}
               target="_blank"
               rel="noreferrer"
-              className="ios-btn ios-btn-primary"
+              className="ios-btn ios-btn-secondary"
             >
               Abrir WhatsApp
             </a>
             <CopyButton text={message} label="Copiar mensaje" />
           </div>
-          {!isConfirmed ? (
-            <SendWhatsAppApiButton
-              configured={waConfigured}
-              action={sendAppointmentWhatsAppAction.bind(null, appointment.id)}
-            />
-          ) : null}
           {!isConfirmed ? (
             <div className="rounded-2xl border border-line bg-white p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted">

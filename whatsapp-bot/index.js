@@ -33,7 +33,7 @@ const loadSentMessage =
 const MONGO_URI = process.env.MONGO_URI;
 const PORT = Number(process.env.PORT || 3001);
 const SESSION_ID = process.env.WA_SESSION_ID || "default";
-const BOT_BUILD = "2026-09-17-assert-session-v12";
+const BOT_BUILD = "2026-09-17-phone-retry-v13";
 
 const logger = pino({ level: process.env.LOG_LEVEL || "error" });
 const baileysLogger = logger.child({ module: "baileys" });
@@ -65,7 +65,7 @@ let sendReadyTimer = null;
 const recentMessages = new Map();
 const MAX_RECENT = 200;
 
-function rememberMessage(id, message, remoteJid) {
+async function rememberMessage(id, message, remoteJid) {
   if (!id || !message) return;
   recentMessages.set(id, message);
   if (remoteJid) recentMessages.set(`${remoteJid}::${id}`, message);
@@ -73,7 +73,8 @@ function rememberMessage(id, message, remoteJid) {
     const first = recentMessages.keys().next().value;
     recentMessages.delete(first);
   }
-  void rememberSentMessage(SESSION_ID, id, message, remoteJid);
+  // Esperar persistencia: el celular pide reintento y sin esto queda “Esperando el mensaje…”
+  await rememberSentMessage(SESSION_ID, id, message, remoteJid);
 }
 
 function clearReconnectTimer() {
@@ -190,8 +191,8 @@ async function startWhatsApp() {
       keepAliveIntervalMs: 25_000,
       connectTimeoutMs: 90_000,
       defaultQueryTimeoutMs: 90_000,
-      retryRequestDelayMs: 750,
-      maxMsgRetryCount: 5,
+      retryRequestDelayMs: 500,
+      maxMsgRetryCount: 8,
       getMessage: async (key) => {
         if (!key?.id) return undefined;
         const byJid = key.remoteJid
@@ -201,7 +202,14 @@ async function startWhatsApp() {
         const cached = recentMessages.get(key.id);
         if (cached) return cached;
         try {
-          return await loadSentMessage(SESSION_ID, key.id);
+          const fromDb = await loadSentMessage(SESSION_ID, key.id);
+          if (fromDb) {
+            recentMessages.set(key.id, fromDb);
+            if (key.remoteJid) {
+              recentMessages.set(`${key.remoteJid}::${key.id}`, fromDb);
+            }
+          }
+          return fromDb;
         } catch {
           return undefined;
         }
@@ -219,7 +227,23 @@ async function startWhatsApp() {
     sock.ev.on("messages.upsert", ({ messages }) => {
       for (const msg of messages) {
         if (msg?.key?.fromMe && msg.key.id && msg.message) {
-          rememberMessage(msg.key.id, msg.message, msg.key.remoteJid);
+          void rememberMessage(msg.key.id, msg.message, msg.key.remoteJid);
+        }
+      }
+    });
+
+    // Cuando el celular pide reintento del mensaje (placeholder “Esperando…”)
+    sock.ev.on("messages.update", (updates) => {
+      for (const u of updates) {
+        if (u?.key?.fromMe && u.key.id) {
+          const cached =
+            recentMessages.get(u.key.id) ||
+            (u.key.remoteJid
+              ? recentMessages.get(`${u.key.remoteJid}::${u.key.id}`)
+              : undefined);
+          if (cached) {
+            console.log(`🔁 Retry/update para ${u.key.id}`);
+          }
         }
       }
     });
@@ -477,7 +501,14 @@ async function main() {
         jid = checked[0].jid;
       }
 
-      // Establecer sesión Signal antes de enviar (evita “Esperando el mensaje…”)
+      try {
+        await sock.presenceSubscribe(jid).catch(() => {});
+        await sock.sendPresenceUpdate("available").catch(() => {});
+      } catch {
+        // ignore
+      }
+
+      // Establecer sesión Signal antes de enviar (celular vs Web)
       try {
         if (typeof sock.assertSessions === "function") {
           await sock.assertSessions([jid], true);
@@ -496,7 +527,6 @@ async function main() {
         } catch (err) {
           lastErr = err;
           console.error(`Error /send intento ${attempt}:`, err.message);
-          // Si la sesión quedó corrupta, reintentar con assertSessions
           if (attempt < 3) {
             try {
               if (typeof sock.assertSessions === "function") {
@@ -519,7 +549,11 @@ async function main() {
       }
 
       const mid = sent?.key?.id;
-      rememberMessage(mid, sent?.message ?? { conversation: text }, jid);
+      // Guardar el texto siempre (además del proto) para que el celular pueda pedir reintento
+      const payload = sent?.message ?? { conversation: text };
+      await rememberMessage(mid, payload, jid);
+      // Pequeña pausa para que el primary pida resend si hace falta
+      await sleep(800);
       console.log(`📤 Enviado a ${jid} id=${mid}`);
       return res.json({ ok: true, messageId: mid ?? "sent", to: jid });
     } catch (err) {
