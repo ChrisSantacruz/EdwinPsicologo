@@ -10,14 +10,11 @@ import {
   IconClock,
   IconPin,
   IconWallet,
-  IconWhatsApp,
 } from "@/components/icons";
 import {
   formatAppointmentDate,
   formatAppointmentTime,
   formatMoney,
-  formatPhoneDisplay,
-  whatsappLink,
 } from "@/lib/format";
 import { PRACTICE } from "@/lib/constants";
 import { BRAND } from "@/lib/brand";
@@ -49,11 +46,6 @@ export default async function PatientConfirmPage({
   });
 
   if (!appointment) notFound();
-
-  const waDirect = whatsappLink(
-    PRACTICE.phone,
-    `Hola Edwin, escribo por mi cita del ${formatAppointmentDate(appointment.scheduledAt)}.`,
-  );
 
   return (
     <main className="patient-shell mx-auto flex min-h-full w-full max-w-xl flex-1 flex-col">
@@ -124,27 +116,8 @@ export default async function PatientConfirmPage({
           nequiNumber={PRACTICE.nequi}
           paymentRef={appointment.paymentRef}
           amount={appointment.price}
+          appointmentDay={formatAppointmentDate(appointment.scheduledAt)}
         />
-
-        <a
-          href={waDirect}
-          target="_blank"
-          rel="noreferrer"
-          className="cta-bar fade-up transition hover:brightness-110"
-        >
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white">
-              <IconWhatsApp className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-white/70">¿Dudas?</p>
-              <p className="font-semibold">WhatsApp {formatPhoneDisplay(PRACTICE.phone)}</p>
-            </div>
-          </div>
-          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
-            Escribir
-          </span>
-        </a>
 
         <p className="px-2 text-center text-[11px] leading-relaxed text-muted">
           {BRAND.closing}

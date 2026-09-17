@@ -20,6 +20,7 @@ export function PatientPaymentChooser({
   nequiNumber,
   paymentRef: initialRef,
   amount: initialAmount,
+  appointmentDay,
 }: {
   token: string;
   initialStatus: string;
@@ -27,6 +28,7 @@ export function PatientPaymentChooser({
   nequiNumber: string;
   paymentRef?: string | null;
   amount?: number;
+  appointmentDay: string;
 }) {
   const [status, setStatus] = useState(initialStatus);
   const [extras, setExtras] = useState<ConfirmExtras>({
@@ -86,9 +88,16 @@ export function PatientPaymentChooser({
   }
 
   if (status === "AWAITING_PROOF") {
+    // Mensaje distinto al de “dudas”: solo comprobante + pedir confirmación
     const waProof = whatsappLink(
       practicePhone,
-      `Hola Edwin, te envío el pantallazo de mi Nequi. Monto ${amountLabel}. Referencia ${refLabel}.`,
+      `Hola Edwin, ya pagué por Nequi y te envío el pantallazo para que confirmes mi cita 🤍
+
+Monto: ${amountLabel}
+Referencia: ${refLabel}
+Cita: ${appointmentDay}
+
+Adjunto el pantallazo en este chat.`,
     );
 
     return (
@@ -145,41 +154,68 @@ export function PatientPaymentChooser({
     );
   }
 
-  // PENDING_PATIENT (u otro): solo Nequi
+  // PENDING_PATIENT (u otro): solo Nequi + WhatsApp de dudas (mensaje inicial)
+  const waDoubts = whatsappLink(
+    practicePhone,
+    `Hola Edwin, escribo por mi cita del ${appointmentDay}.`,
+  );
+
   return (
-    <div className="ios-card patient-card fade-up space-y-4 p-5">
-      <div className="text-center">
-        <h2 className="font-display text-xl font-semibold text-ink">Confirma tu asistencia</h2>
-        <p className="mt-1 text-sm text-muted">
-          Inversión: <strong className="text-ink">{amountLabel}</strong>
-        </p>
-        <p className="mt-1 text-xs text-muted">El pago se realiza únicamente por Nequi</p>
-        <div className="mx-auto mt-2 h-px w-14 bg-gradient-to-r from-transparent via-gold to-transparent" />
+    <>
+      <div className="ios-card patient-card fade-up space-y-4 p-5">
+        <div className="text-center">
+          <h2 className="font-display text-xl font-semibold text-ink">Confirma tu asistencia</h2>
+          <p className="mt-1 text-sm text-muted">
+            Inversión: <strong className="text-ink">{amountLabel}</strong>
+          </p>
+          <p className="mt-1 text-xs text-muted">El pago se realiza únicamente por Nequi</p>
+          <div className="mx-auto mt-2 h-px w-14 bg-gradient-to-r from-transparent via-gold to-transparent" />
+        </div>
+
+        <button
+          type="button"
+          disabled={pending}
+          className="patient-pay-option"
+          onClick={() =>
+            startTransition(async () => {
+              applyResult(await patientChoosePaymentAction(token, "NEQUI"));
+            })
+          }
+        >
+          <span className="patient-pay-icon text-burgundy">
+            <IconNequi className="h-5 w-5" />
+          </span>
+          <span>
+            <span className="block font-semibold text-ink">Continuar con Nequi</span>
+            <span className="mt-0.5 block text-xs text-muted">
+              Envías pantallazo · Edwin confirma
+            </span>
+          </span>
+        </button>
+
+        {error ? <p className="text-center text-sm text-burgundy">{error}</p> : null}
+        {pending ? <p className="text-center text-xs text-muted">Guardando…</p> : null}
       </div>
 
-      <button
-        type="button"
-        disabled={pending}
-        className="patient-pay-option"
-        onClick={() =>
-          startTransition(async () => {
-            applyResult(await patientChoosePaymentAction(token, "NEQUI"));
-          })
-        }
+      <a
+        href={waDoubts}
+        target="_blank"
+        rel="noreferrer"
+        className="cta-bar fade-up transition hover:brightness-110"
       >
-        <span className="patient-pay-icon text-burgundy">
-          <IconNequi className="h-5 w-5" />
-        </span>
-        <span>
-          <span className="block font-semibold text-ink">Continuar con Nequi</span>
-          <span className="mt-0.5 block text-xs text-muted">
-            Envías pantallazo · Edwin confirma
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white">
+            <IconWhatsApp className="h-5 w-5" />
           </span>
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-white/70">¿Dudas?</p>
+            <p className="font-semibold">WhatsApp {formatPhoneDisplay(practicePhone)}</p>
+          </div>
+        </div>
+        <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+          Escribir
         </span>
-      </button>
-
-      {error ? <p className="text-center text-sm text-burgundy">{error}</p> : null}
-      {pending ? <p className="text-center text-xs text-muted">Guardando…</p> : null}
-    </div>
+      </a>
+    </>
   );
 }
