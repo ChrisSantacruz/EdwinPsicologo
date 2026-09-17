@@ -23,9 +23,11 @@ const MONGO_URI = process.env.MONGO_URI;
 const PORT = Number(process.env.PORT || 3001);
 const SESSION_ID = process.env.WA_SESSION_ID || "default";
 /** Marca de build — si en / no aparece, Render aún corre código viejo. */
-const BOT_BUILD = "2026-09-17-no-autoreply-v3";
+const BOT_BUILD = "2026-09-17-hibernate-safe-v4";
 
-const logger = pino({ level: process.env.LOG_LEVEL || "info" });
+// En Render free Baileys mete demasiado ruido (hasta keys) con level=info
+const logger = pino({ level: process.env.LOG_LEVEL || "error" });
+const baileysLogger = logger.child({ module: "baileys" });
 
 if (!MONGO_URI) {
   console.error("❌ Falta MONGO_URI en .env");
@@ -78,16 +80,21 @@ async function startWhatsApp() {
       version,
       auth: {
         creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, logger),
+        keys: makeCacheableSignalKeyStore(state.keys, baileysLogger),
       },
-      logger,
+      logger: baileysLogger,
       printQRInTerminal: false,
       markOnlineOnConnect: false,
       syncFullHistory: false,
+      // Evita timeouts 408 al despertar del hibernate de Render free
+      fireInitQueries: false,
+      shouldSyncHistoryMessage: () => false,
       generateHighQualityLinkPreview: false,
-      keepAliveIntervalMs: 25_000,
-      connectTimeoutMs: 60_000,
-      defaultQueryTimeoutMs: 60_000,
+      keepAliveIntervalMs: 20_000,
+      connectTimeoutMs: 90_000,
+      defaultQueryTimeoutMs: 90_000,
+      retryRequestDelayMs: 500,
+      maxMsgRetryCount: 5,
       // Crítico: sin esto WhatsApp muestra “Esperando el mensaje…”
       getMessage: async (key) => {
         if (!key?.id) return undefined;
@@ -339,12 +346,37 @@ async function main() {
 
     try {
       // Resolver JID real (cuenta existe / LID) antes de enviar
-      const checked = await sock.onWhatsApp(digits);
+      let checked;
+      try {
+        checked = await sock.onWhatsApp(digits);
+      } catch (err) {
+        console.error("onWhatsApp:", err.message);
+      }
       if (checked?.[0]?.exists && checked[0].jid) {
         jid = checked[0].jid;
       }
 
-      const sent = await sock.sendMessage(jid, { text });
+      let sent;
+      let lastErr;
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        try {
+          sent = await sock.sendMessage(jid, { text });
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+          console.error(`Error /send intento ${attempt}:`, err.message);
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
+        }
+      }
+      if (!sent) {
+        return res.status(500).json({
+          ok: false,
+          error: lastErr?.message || "send_failed",
+          hint: "Usa Abrir WhatsApp en el panel (más fiable en Render free).",
+        });
+      }
+
       const mid = sent?.key?.id;
       rememberMessage(mid, sent?.message ?? { conversation: text });
       console.log(`📤 Enviado a ${jid}`);
@@ -355,7 +387,11 @@ async function main() {
       });
     } catch (err) {
       console.error("Error /send:", err.message);
-      return res.status(500).json({ ok: false, error: err.message || "send_failed" });
+      return res.status(500).json({
+        ok: false,
+        error: err.message || "send_failed",
+        hint: "Usa Abrir WhatsApp en el panel.",
+      });
     }
   });
 

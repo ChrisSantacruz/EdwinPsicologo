@@ -30,7 +30,7 @@ export function SendWhatsAppApiButton({
       <button
         type="button"
         disabled={pending}
-        className="ios-btn ios-btn-primary w-full disabled:opacity-60"
+        className="ios-btn ios-btn-secondary w-full disabled:opacity-60"
         onClick={() =>
           startTransition(async () => {
             setError(null);
@@ -41,8 +41,11 @@ export function SendWhatsAppApiButton({
           })
         }
       >
-        {pending ? "Enviando…" : "Enviar mensaje"}
+        {pending ? "Enviando…" : "Enviar desde el servidor (opcional)"}
       </button>
+      <p className="text-xs text-muted">
+        Si el paciente ve “Esperando el mensaje…”, usa Abrir WhatsApp arriba.
+      </p>
       {message ? <p className="text-sm font-medium text-success">{message}</p> : null}
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}
     </div>
