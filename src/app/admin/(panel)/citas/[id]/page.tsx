@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { StatusBadge } from "@/components/status-badge";
 import { CopyButton, ConfirmAppointmentButton } from "@/components/client-actions";
 import { EditAppointmentForm } from "@/components/edit-appointment-form";
-import { SendWhatsAppApiButton } from "@/components/send-whatsapp-button";
 import {
   formatAppointmentDate,
   formatAppointmentTime,
@@ -17,9 +16,7 @@ import {
   cancelAppointmentAction,
   confirmAppointmentAction,
   deleteAppointmentAction,
-  sendAppointmentWhatsAppAction,
 } from "@/app/actions";
-import { isWhatsAppConfigured } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/app-url";
 import { appointmentPublicPath } from "@/lib/appointment-token";
 
@@ -58,7 +55,6 @@ export default async function AppointmentDetailPage({
     : null;
   const message = confirmMessage ?? appointment.whatsappMessage ?? "";
   const waPatient = whatsappLink(appointment.patientPhone, message);
-  const waConfigured = isWhatsAppConfigured();
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -154,8 +150,7 @@ export default async function AppointmentDetailPage({
           </h3>
           {isConfirmed ? (
             <p className="text-sm text-muted">
-              El pago ya está confirmado. Ábrelo en WhatsApp y envíalo desde el celular (así llega
-              bien).
+              El pago ya está confirmado. Envía este mensaje por WhatsApp.
             </p>
           ) : null}
           <pre className="whitespace-pre-wrap rounded-2xl bg-canvas p-4 text-sm leading-relaxed text-ink">
@@ -172,12 +167,6 @@ export default async function AppointmentDetailPage({
             </a>
             <CopyButton text={message} label="Copiar mensaje" />
           </div>
-          {waConfigured ? (
-            <SendWhatsAppApiButton
-              configured={waConfigured}
-              action={sendAppointmentWhatsAppAction.bind(null, appointment.id)}
-            />
-          ) : null}
           {!isConfirmed ? (
             <div className="rounded-2xl border border-line bg-white p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted">
