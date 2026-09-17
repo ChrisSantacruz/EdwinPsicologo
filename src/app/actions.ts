@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { createSession, deleteSession, requireAdmin } from "@/lib/auth";
 import {
   buildConfirmationMessage,
+  buildEdwinConfirmedPatientMessage,
   buildPatientGoogleCalendarUrl,
   buildPatientToEdwinConfirmMessage,
   formatAppointmentDate,
@@ -291,6 +292,14 @@ export async function confirmAppointmentAction(
     return { error: "Esta cita no está en flujo Nequi" };
   }
 
+  const confirmMessage = buildEdwinConfirmedPatientMessage({
+    patientName: appointment.patientName,
+    scheduledAt: appointment.scheduledAt,
+    serviceName: appointment.service.name,
+    address: appointment.location.address,
+    neighborhood: appointment.location.neighborhood,
+  });
+
   const updated = await prisma.appointment.update({
     where: { id: appointmentId },
     data: {
@@ -300,20 +309,13 @@ export async function confirmAppointmentAction(
         appointment.paymentMethod === PAYMENT.NEQUI
           ? paymentNote?.trim() || null
           : appointment.paymentNote,
+      whatsappMessage: confirmMessage,
     },
     include: { service: true, location: true },
   });
 
   await syncCalendar(updated);
 
-  const { buildEdwinConfirmedPatientMessage } = await import("@/lib/format");
-  const confirmMessage = buildEdwinConfirmedPatientMessage({
-    patientName: updated.patientName,
-    scheduledAt: updated.scheduledAt,
-    serviceName: updated.service.name,
-    address: updated.location.address,
-    neighborhood: updated.location.neighborhood,
-  });
   const confirmWaUrl = whatsappLink(updated.patientPhone, confirmMessage);
 
   // WhatsApp #2: confirmación al paciente (si hay bot); si no, Edwin envía con el botón

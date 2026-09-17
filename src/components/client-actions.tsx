@@ -37,31 +37,49 @@ export function ConfirmAppointmentButton({
     ok?: boolean;
     whatsappSent?: boolean;
     confirmWaUrl?: string;
+    confirmMessage?: string;
   }>;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [checked, setChecked] = useState(mode === "efectivo");
-  const [note, setNote] = useState("");
   const [done, setDone] = useState<{
     whatsappSent?: boolean;
     confirmWaUrl?: string;
+    confirmMessage?: string;
   } | null>(null);
 
   if (done) {
     return (
-      <div className="space-y-3 rounded-2xl bg-success/10 px-4 py-4">
-        <p className="text-sm font-semibold text-success">Cita confirmada</p>
-        <p className="text-sm text-muted">
-          {done.whatsappSent
-            ? "El mensaje de confirmación se envió al paciente."
-            : "Envía ahora el mensaje cálido de confirmación por WhatsApp:"}
-        </p>
-        {done.confirmWaUrl && !done.whatsappSent ? (
-          <a href={done.confirmWaUrl} target="_blank" rel="noreferrer" className="ios-btn ios-btn-primary w-full">
-            Enviar confirmación por WhatsApp
-          </a>
-        ) : null}
+      <div className="space-y-3">
+        <p className="text-sm font-semibold text-success">Pago recibido · cita confirmada</p>
+        {done.whatsappSent ? (
+          <p className="text-sm text-muted">El mensaje de confirmación ya se envió al paciente.</p>
+        ) : (
+          <>
+            <p className="text-sm text-muted">Envía este mensaje al paciente por WhatsApp:</p>
+            {done.confirmMessage ? (
+              <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-2xl bg-canvas p-4 text-sm leading-relaxed text-ink">
+                {done.confirmMessage}
+              </pre>
+            ) : null}
+            <div className="grid gap-2 sm:grid-cols-2">
+              {done.confirmWaUrl ? (
+                <a
+                  href={done.confirmWaUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ios-btn ios-btn-primary w-full"
+                >
+                  Abrir WhatsApp
+                </a>
+              ) : null}
+              {done.confirmMessage ? (
+                <CopyButton text={done.confirmMessage} label="Copiar mensaje" />
+              ) : null}
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -70,17 +88,15 @@ export function ConfirmAppointmentButton({
     <div className="space-y-3">
       {mode === "nequi" ? (
         <>
-          <div className="rounded-2xl bg-canvas px-4 py-3 text-sm text-muted">
-            <p>
-              Verifica el pantallazo: <strong className="text-ink">{formatMoney(amount)}</strong>
-              {paymentRef ? (
-                <>
-                  {" "}
-                  · ref <strong className="font-mono text-burgundy">{paymentRef}</strong>
-                </>
-              ) : null}
-            </p>
-          </div>
+          <p className="text-sm text-muted">
+            {formatMoney(amount)}
+            {paymentRef ? (
+              <>
+                {" "}
+                · ref <strong className="font-mono text-burgundy">{paymentRef}</strong>
+              </>
+            ) : null}
+          </p>
           <label className="flex items-start gap-3 text-sm text-ink">
             <input
               type="checkbox"
@@ -88,20 +104,11 @@ export function ConfirmAppointmentButton({
               checked={checked}
               onChange={(e) => setChecked(e.target.checked)}
             />
-            <span>Ya revisé el pantallazo en WhatsApp y el dinero está en mi Nequi.</span>
+            <span>Ya llegó el pago a mi Nequi</span>
           </label>
-          <input
-            className="ios-input"
-            placeholder="Nota opcional"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
         </>
       ) : (
-        <p className="text-sm text-muted">
-          El paciente eligió efectivo. Al confirmar, le enviaremos (o abrirás) el mensaje cálido de
-          confirmación por WhatsApp.
-        </p>
+        <p className="text-sm text-muted">Confirma para enviar el mensaje final al paciente.</p>
       )}
 
       <button
@@ -112,7 +119,7 @@ export function ConfirmAppointmentButton({
           startTransition(async () => {
             setError(null);
             try {
-              const res = await action(note.trim() || undefined);
+              const res = await action();
               if (res?.error) {
                 setError(res.error);
                 return;
@@ -120,6 +127,7 @@ export function ConfirmAppointmentButton({
               setDone({
                 whatsappSent: res.whatsappSent,
                 confirmWaUrl: res.confirmWaUrl,
+                confirmMessage: res.confirmMessage,
               });
             } catch {
               setError("No se pudo confirmar. Recarga la página e inténtalo de nuevo.");
@@ -127,7 +135,7 @@ export function ConfirmAppointmentButton({
           })
         }
       >
-        {pending ? "Confirmando…" : "Confirmar cita"}
+        {pending ? "Confirmando…" : "Confirmar pago recibido"}
       </button>
       {error ? <p className="text-sm text-burgundy">{error}</p> : null}
     </div>
@@ -142,7 +150,13 @@ export function ConfirmNequiButton({
 }: {
   amount: number;
   paymentRef?: string | null;
-  action: (note?: string) => Promise<{ error?: string; ok?: boolean; whatsappSent?: boolean; confirmWaUrl?: string }>;
+  action: (note?: string) => Promise<{
+    error?: string;
+    ok?: boolean;
+    whatsappSent?: boolean;
+    confirmWaUrl?: string;
+    confirmMessage?: string;
+  }>;
 }) {
   return (
     <ConfirmAppointmentButton

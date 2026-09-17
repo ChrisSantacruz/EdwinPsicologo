@@ -10,6 +10,7 @@ import {
   formatAppointmentTime,
   formatMoney,
   formatPhoneDisplay,
+  buildEdwinConfirmedPatientMessage,
   whatsappLink,
 } from "@/lib/format";
 import {
@@ -44,7 +45,17 @@ export default async function AppointmentDetailPage({
 
   const appUrl = getAppUrl();
   const confirmUrl = `${appUrl}${appointmentPublicPath(appointment.token)}`;
-  const message = appointment.whatsappMessage ?? "";
+  const isConfirmed = appointment.status === "CONFIRMED";
+  const confirmMessage = isConfirmed
+    ? buildEdwinConfirmedPatientMessage({
+        patientName: appointment.patientName,
+        scheduledAt: appointment.scheduledAt,
+        serviceName: appointment.service.name,
+        address: appointment.location.address,
+        neighborhood: appointment.location.neighborhood,
+      })
+    : null;
+  const message = confirmMessage ?? appointment.whatsappMessage ?? "";
   const waPatient = whatsappLink(appointment.patientPhone, message);
   const waConfigured = isWhatsAppConfigured();
 
@@ -106,6 +117,81 @@ export default async function AppointmentDetailPage({
         />
       </div>
 
+      {appointment.status === "AWAITING_PROOF" ? (
+        <div className="ios-card space-y-3 border-burgundy/20 p-5">
+          <h3 className="font-display text-xl font-semibold text-ink">¿Llegó el Nequi?</h3>
+          <ConfirmAppointmentButton
+            mode="nequi"
+            amount={appointment.price}
+            paymentRef={appointment.paymentRef}
+            action={async () => {
+              "use server";
+              return confirmAppointmentAction(appointment.id);
+            }}
+          />
+        </div>
+      ) : null}
+
+      {appointment.status === "AWAITING_EDWIN" ? (
+        <div className="ios-card space-y-3 border-burgundy/20 p-5">
+          <h3 className="font-display text-xl font-semibold text-ink">Confirmar efectivo</h3>
+          <ConfirmAppointmentButton
+            mode="efectivo"
+            amount={appointment.price}
+            action={async () => {
+              "use server";
+              return confirmAppointmentAction(appointment.id);
+            }}
+          />
+        </div>
+      ) : null}
+
+      {isConfirmed || appointment.status === "PENDING_PATIENT" ? (
+        <div className="ios-card space-y-3 p-5">
+          <h3 className="font-display text-xl font-semibold text-ink">
+            {isConfirmed ? "Mensaje de confirmación al paciente" : "Mensaje al paciente"}
+          </h3>
+          {isConfirmed ? (
+            <p className="text-sm text-muted">
+              El pago ya está confirmado. Envía este mensaje por WhatsApp.
+            </p>
+          ) : null}
+          <pre className="whitespace-pre-wrap rounded-2xl bg-canvas p-4 text-sm leading-relaxed text-ink">
+            {message}
+          </pre>
+          {waConfigured ? (
+            <SendWhatsAppApiButton
+              configured={waConfigured}
+              action={sendAppointmentWhatsAppAction.bind(null, appointment.id)}
+            />
+          ) : null}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <a
+              href={waPatient}
+              target="_blank"
+              rel="noreferrer"
+              className="ios-btn ios-btn-primary"
+            >
+              Abrir WhatsApp
+            </a>
+            <CopyButton text={message} label="Copiar mensaje" />
+          </div>
+          {!isConfirmed ? (
+            <div className="rounded-2xl border border-line bg-white p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Enlace para el paciente
+              </p>
+              <p className="mt-1 truncate text-sm text-burgundy" title={confirmUrl}>
+                {confirmUrl.replace(/^https?:\/\//, "")}
+              </p>
+              <div className="mt-2">
+                <CopyButton text={confirmUrl} label="Copiar enlace" />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <EditAppointmentForm
         appointment={{
           id: appointment.id,
@@ -124,78 +210,6 @@ export default async function AppointmentDetailPage({
         }))}
         locations={locations.map((l) => ({ id: l.id, name: l.name }))}
       />
-
-      <div className="ios-card space-y-3 p-5">
-        <h3 className="font-display text-xl font-semibold text-ink">Mensaje al paciente</h3>
-        <pre className="whitespace-pre-wrap rounded-2xl bg-canvas p-4 text-sm leading-relaxed text-ink">
-          {message}
-        </pre>
-        {waConfigured ? (
-          <SendWhatsAppApiButton
-            configured={waConfigured}
-            action={sendAppointmentWhatsAppAction.bind(null, appointment.id)}
-          />
-        ) : null}
-        <div className="grid gap-2 sm:grid-cols-2">
-          <a
-            href={waPatient}
-            target="_blank"
-            rel="noreferrer"
-            className={waConfigured ? "ios-btn ios-btn-secondary" : "ios-btn ios-btn-primary"}
-          >
-            {waConfigured ? "Abrir en WhatsApp" : "Abrir en WhatsApp"}
-          </a>
-          <CopyButton text={message} label="Copiar mensaje" />
-        </div>
-        <div className="rounded-2xl border border-line bg-white p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-            Enlace para el paciente
-          </p>
-          <p className="mt-1 truncate text-sm text-burgundy" title={confirmUrl}>
-            {confirmUrl.replace(/^https?:\/\//, "")}
-          </p>
-          <div className="mt-2">
-            <CopyButton text={confirmUrl} label="Copiar enlace" />
-          </div>
-        </div>
-      </div>
-
-      {appointment.status === "AWAITING_PROOF" ? (
-        <div className="ios-card space-y-3 border-burgundy/20 p-5">
-          <h3 className="font-display text-xl font-semibold text-ink">Pantallazo Nequi</h3>
-          <p className="text-sm text-muted">
-            Revisa el pantallazo en tu WhatsApp (tú lo verificas). Luego confirma aquí y se enviará
-            el mensaje cálido de confirmación al paciente.
-          </p>
-          <ConfirmAppointmentButton
-            mode="nequi"
-            amount={appointment.price}
-            paymentRef={appointment.paymentRef}
-            action={async (note) => {
-              "use server";
-              return confirmAppointmentAction(appointment.id, note);
-            }}
-          />
-        </div>
-      ) : null}
-
-      {appointment.status === "AWAITING_EDWIN" ? (
-        <div className="ios-card space-y-3 border-burgundy/20 p-5">
-          <h3 className="font-display text-xl font-semibold text-ink">Confirmar efectivo</h3>
-          <p className="text-sm text-muted">
-            El paciente eligió efectivo. Confirma la cita para enviarle el mensaje final por
-            WhatsApp.
-          </p>
-          <ConfirmAppointmentButton
-            mode="efectivo"
-            amount={appointment.price}
-            action={async (note) => {
-              "use server";
-              return confirmAppointmentAction(appointment.id, note);
-            }}
-          />
-        </div>
-      ) : null}
 
       {appointment.status !== "CANCELLED" ? (
         <form
