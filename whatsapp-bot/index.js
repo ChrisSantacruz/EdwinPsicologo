@@ -35,7 +35,7 @@ const MONGO_URI = process.env.MONGO_URI;
 const PORT = Number(process.env.PORT || 3001);
 const SESSION_ID = process.env.WA_SESSION_ID || "default";
 /** Marca de build — si en / no aparece, Render aún corre código viejo. */
-const BOT_BUILD = "2026-09-17-link-preview-v8";
+const BOT_BUILD = "2026-09-17-logout-fix-v9";
 const INSTANCE_ID =
   process.env.RENDER_INSTANCE_ID ||
   process.env.HOSTNAME ||
@@ -374,10 +374,16 @@ async function main() {
       latestQrAt = null;
       waStatus = "logging_out";
       clearReconnectTimer();
+      stopLeaseHeartbeat();
 
       if (sock) {
         try {
-          await sock.logout();
+          await Promise.race([
+            sock.logout(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("logout_timeout")), 8_000),
+            ),
+          ]);
         } catch {
           try {
             sock.end?.(undefined);
@@ -388,11 +394,20 @@ async function main() {
         sock = null;
       }
 
-      await clearMongoAuthState(SESSION_ID);
-      await releaseSessionLease(SESSION_ID, INSTANCE_ID);
+      try {
+        await clearMongoAuthState(SESSION_ID);
+      } catch (err) {
+        console.error("clearMongoAuthState:", err.message);
+      }
+      try {
+        await releaseSessionLease(SESSION_ID, INSTANCE_ID);
+      } catch (err) {
+        console.error("releaseSessionLease:", err.message);
+      }
+
       reconnectAttempts = 0;
       isConnecting = false;
-
+      waStatus = "waiting_qr";
       scheduleReconnect(1500);
 
       return res.json({
@@ -401,6 +416,16 @@ async function main() {
       });
     } catch (err) {
       console.error("/logout:", err.message);
+      // Aun con error parcial, intenta dejar el bot listo para QR
+      try {
+        sock = null;
+        isConnecting = false;
+        waStatus = "waiting_qr";
+        await clearMongoAuthState(SESSION_ID).catch(() => {});
+        scheduleReconnect(2000);
+      } catch {
+        // ignore
+      }
       return res.status(500).json({ ok: false, error: err.message || "logout_failed" });
     }
   });

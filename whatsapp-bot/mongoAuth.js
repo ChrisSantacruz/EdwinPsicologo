@@ -24,8 +24,130 @@ const WhatsAppAuth =
   mongoose.models.WhatsAppAuth ||
   mongoose.model("WhatsAppAuth", WhatsAppAuthSchema);
 
+/** Mensajes propios para getMessage (reintentos de cifrado tras hibernate). */
+const WhatsAppSentMessageSchema = new mongoose.Schema(
+  {
+    _id: { type: String, required: true },
+    sessionId: { type: String, required: true, index: true },
+    remoteJid: { type: String },
+    data: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now, expires: 60 * 60 * 48 },
+  },
+  {
+    collection: "WhatsAppSentMessages",
+    versionKey: false,
+  },
+);
+
+const WhatsAppSentMessage =
+  mongoose.models.WhatsAppSentMessage ||
+  mongoose.model("WhatsAppSentMessage", WhatsAppSentMessageSchema);
+
+/** Lease: una sola instancia del bot puede reconectar la misma sesión. */
+const WhatsAppLeaseSchema = new mongoose.Schema(
+  {
+    _id: { type: String, required: true },
+    ownerId: { type: String, required: true },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  {
+    collection: "WhatsAppLeases",
+    versionKey: false,
+  },
+);
+
+const WhatsAppLease =
+  mongoose.models.WhatsAppLease ||
+  mongoose.model("WhatsAppLease", WhatsAppLeaseSchema);
+
 function fixFileName(file) {
   return String(file).replace(/\//g, "__").replace(/:/g, "-");
+}
+
+const LEASE_TTL_MS = 45_000;
+
+async function acquireSessionLease(sessionId, ownerId) {
+  const _id = `lease:${sessionId}`;
+  const now = new Date();
+  const staleBefore = new Date(now.getTime() - LEASE_TTL_MS);
+
+  // 1) Renovar / reclamar si es nuestro o está vencido
+  const claimed = await WhatsAppLease.findOneAndUpdate(
+    {
+      _id,
+      $or: [{ ownerId }, { updatedAt: { $lte: staleBefore } }],
+    },
+    { $set: { ownerId, updatedAt: now } },
+    { new: true },
+  );
+  if (claimed?.ownerId === ownerId) return true;
+
+  // 2) Crear si no existe
+  try {
+    await WhatsAppLease.create({ _id, ownerId, updatedAt: now });
+    return true;
+  } catch {
+    // 3) Carrera: otro lo creó; solo ganamos si ya venció
+    const existing = await WhatsAppLease.findById(_id).lean();
+    if (!existing) return false;
+    if (existing.ownerId === ownerId) {
+      await WhatsAppLease.updateOne({ _id, ownerId }, { $set: { updatedAt: now } });
+      return true;
+    }
+    if (existing.updatedAt && new Date(existing.updatedAt) <= staleBefore) {
+      const stolen = await WhatsAppLease.findOneAndUpdate(
+        { _id, updatedAt: existing.updatedAt },
+        { $set: { ownerId, updatedAt: now } },
+        { new: true },
+      );
+      return stolen?.ownerId === ownerId;
+    }
+    return false;
+  }
+}
+
+async function renewSessionLease(sessionId, ownerId) {
+  const _id = `lease:${sessionId}`;
+  const res = await WhatsAppLease.updateOne(
+    { _id, ownerId },
+    { $set: { updatedAt: new Date() } },
+  );
+  return res.matchedCount > 0;
+}
+
+async function releaseSessionLease(sessionId, ownerId) {
+  const _id = `lease:${sessionId}`;
+  await WhatsAppLease.deleteOne({ _id, ownerId }).catch(() => {});
+}
+
+async function rememberSentMessage(sessionId, messageId, message, remoteJid) {
+  if (!messageId || !message) return;
+  const _id = `${sessionId}:${messageId}`;
+  const payload = JSON.stringify(message, BufferJSON.replacer);
+  await WhatsAppSentMessage.findByIdAndUpdate(
+    _id,
+    {
+      _id,
+      sessionId,
+      remoteJid: remoteJid || null,
+      data: payload,
+      createdAt: new Date(),
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).catch(() => {});
+}
+
+async function loadSentMessage(sessionId, messageId) {
+  if (!messageId) return undefined;
+  try {
+    const doc = await WhatsAppSentMessage.findById(
+      `${sessionId}:${messageId}`,
+    ).lean();
+    if (!doc?.data) return undefined;
+    return JSON.parse(doc.data, BufferJSON.reviver);
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -114,4 +236,10 @@ module.exports = {
   useMongoAuthState,
   clearMongoAuthState,
   WhatsAppAuth,
+  WhatsAppSentMessage,
+  acquireSessionLease,
+  renewSessionLease,
+  releaseSessionLease,
+  rememberSentMessage,
+  loadSentMessage,
 };
