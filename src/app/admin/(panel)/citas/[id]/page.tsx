@@ -16,6 +16,7 @@ import {
 import {
   cancelAppointmentAction,
   confirmAppointmentAction,
+  deleteAppointmentAction,
   sendAppointmentWhatsAppAction,
 } from "@/app/actions";
 import { isWhatsAppConfigured } from "@/lib/whatsapp";
@@ -221,6 +222,22 @@ export default async function AppointmentDetailPage({
           <button type="submit" className="ios-btn ios-btn-danger w-full">
             Cancelar cita
           </button>
+        </form>
+      ) : null}
+
+      {appointment.status === "CONFIRMED" || appointment.status === "CANCELLED" ? (
+        <form
+          action={async () => {
+            "use server";
+            await deleteAppointmentAction(appointment.id);
+          }}
+        >
+          <button type="submit" className="ios-btn ios-btn-secondary w-full text-burgundy">
+            Eliminar del panel
+          </button>
+          <p className="mt-2 text-center text-xs text-muted">
+            La quita de la agenda. No se puede deshacer.
+          </p>
         </form>
       ) : null}
     </div>

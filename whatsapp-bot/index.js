@@ -180,12 +180,7 @@ async function startWhatsApp() {
           if (!normalized) continue;
 
           console.log(`📩 ${jid}: ${text}`);
-
-          if (normalized === "hola" || normalized.startsWith("hola ")) {
-            await sock.sendMessage(jid, {
-              text: "¡Hola! Soy el bot de Edwin Mideros. Pronto te ayudaré con tus citas 😊",
-            });
-          }
+          // Sin auto-respuestas: solo envíos desde el panel
         } catch (err) {
           console.error("Error en messages.upsert:", err.message);
         }

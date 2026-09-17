@@ -17,7 +17,7 @@ import {
   whatsappLink,
 } from "@/lib/format";
 import { PAYMENT, PRACTICE, STATUS } from "@/lib/constants";
-import { upsertCalendarEvent } from "@/lib/calendar";
+import { upsertCalendarEvent, deleteCalendarEvent } from "@/lib/calendar";
 import { normalizePhone, upsertPatient } from "@/lib/patients";
 import { parseContactsCsv } from "@/lib/csv";
 import { bogotaDateTime } from "@/lib/time";
@@ -363,6 +363,67 @@ export async function cancelAppointmentAction(appointmentId: string) {
   revalidatePath("/admin");
   revalidatePath(`/admin/citas/${appointmentId}`);
   return { ok: true };
+}
+
+/** Elimina la cita del panel (y recordatorios / notificaciones ligados). */
+export async function deleteAppointmentAction(appointmentId: string) {
+  const auth = await requireAdmin();
+  if (!auth) redirect("/admin/login");
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+  });
+  if (!appointment) return { error: "Cita no encontrada" };
+
+  if (appointment.googleEventId) {
+    try {
+      await deleteCalendarEvent(appointment.googleEventId);
+    } catch {
+      // Seguir borrando en el panel aunque falle Calendar
+    }
+  }
+
+  await prisma.reminder.deleteMany({ where: { appointmentId } });
+  await prisma.notification.deleteMany({ where: { appointmentId } });
+  await prisma.appointment.delete({ where: { id: appointmentId } });
+
+  revalidatePath("/admin");
+  redirect("/admin");
+}
+
+/** Quita del panel las citas confirmadas (o canceladas) ya pasadas. */
+export async function clearPastAppointmentsAction() {
+  const auth = await requireAdmin();
+  if (!auth) redirect("/admin/login");
+
+  const now = new Date();
+  const past = await prisma.appointment.findMany({
+    where: {
+      scheduledAt: { lt: now },
+      status: { in: [STATUS.CONFIRMED, STATUS.CANCELLED] },
+    },
+    select: { id: true, googleEventId: true },
+  });
+
+  for (const appt of past) {
+    if (appt.googleEventId) {
+      try {
+        await deleteCalendarEvent(appt.googleEventId);
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const ids = past.map((a) => a.id);
+  if (ids.length > 0) {
+    await prisma.reminder.deleteMany({ where: { appointmentId: { in: ids } } });
+    await prisma.notification.deleteMany({ where: { appointmentId: { in: ids } } });
+    await prisma.appointment.deleteMany({ where: { id: { in: ids } } });
+  }
+
+  revalidatePath("/admin");
+  return { ok: true, deleted: ids.length };
 }
 
 export async function patientChoosePaymentAction(

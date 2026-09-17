@@ -184,3 +184,20 @@ export async function upsertCalendarEvent(appt: CalendarAppointment) {
   });
   return created.data.id ?? null;
 }
+
+export async function deleteCalendarEvent(googleEventId: string) {
+  const auth = await getAuthedClient();
+  if (!auth) return false;
+
+  const calendar = google.calendar({ version: "v3", auth });
+  try {
+    await calendar.events.delete({
+      calendarId: "primary",
+      eventId: googleEventId,
+    });
+    return true;
+  } catch (err) {
+    console.error("[calendar] delete failed", err);
+    return false;
+  }
+}

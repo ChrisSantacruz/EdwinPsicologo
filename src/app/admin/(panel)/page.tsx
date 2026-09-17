@@ -4,9 +4,10 @@ import { StatusBadge } from "@/components/status-badge";
 import { formatAppointmentDate, formatAppointmentTime, formatMoney } from "@/lib/format";
 import { addDays } from "date-fns";
 import { endOfBogotaDay, startOfBogotaDay } from "@/lib/time";
-import { markNotificationsReadAction } from "@/app/actions";
+import { markNotificationsReadAction, clearPastAppointmentsAction } from "@/app/actions";
 import { NotificationsPanel } from "@/components/notifications-panel";
 import { isWhatsAppConfigured } from "@/lib/whatsapp";
+import { ClearPastAppointmentsButton } from "@/components/clear-past-appointments";
 
 export default async function AdminDashboardPage() {
   const now = new Date();
@@ -15,7 +16,7 @@ export default async function AdminDashboardPage() {
   const tomorrowEnd = endOfBogotaDay(addDays(now, 1));
   const waReady = isWhatsAppConfigured();
 
-  const [appointments, todayAppts, tomorrowAppts, awaitingCount, pendingCount, confirmedCount, notifications] =
+      const [appointments, todayAppts, tomorrowAppts, awaitingCount, pendingCount, confirmedCount, pastCleanableCount, notifications] =
     await Promise.all([
       prisma.appointment.findMany({
         include: { service: true, location: true },
@@ -47,6 +48,12 @@ export default async function AdminDashboardPage() {
       prisma.appointment.count({
         where: { status: "CONFIRMED" },
       }),
+      prisma.appointment.count({
+        where: {
+          scheduledAt: { lt: now },
+          status: { in: ["CONFIRMED", "CANCELLED"] },
+        },
+      }),
       prisma.notification.findMany({
         where: { read: false },
         orderBy: { createdAt: "desc" },
@@ -68,6 +75,12 @@ export default async function AdminDashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {pastCleanableCount > 0 ? (
+            <ClearPastAppointmentsButton
+              count={pastCleanableCount}
+              action={clearPastAppointmentsAction}
+            />
+          ) : null}
           <Link href="/admin/citas/nueva" className="ios-btn ios-btn-primary">
             Nueva cita
           </Link>
