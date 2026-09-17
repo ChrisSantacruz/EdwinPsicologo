@@ -25,12 +25,17 @@ export async function GET() {
       connected?: boolean;
       whatsapp?: string;
       hasPendingQr?: boolean;
+      build?: string;
+      autoReply?: boolean;
     };
     return NextResponse.json({
       ok: true,
       connected: Boolean(data.connected),
       whatsapp: data.whatsapp,
       hasPendingQr: Boolean(data.hasPendingQr),
+      build: data.build ?? null,
+      // Si no trae autoReply:false, Render aún tiene el bot viejo que responde “hola”
+      outdated: data.autoReply !== false,
     });
   } catch {
     return NextResponse.json({

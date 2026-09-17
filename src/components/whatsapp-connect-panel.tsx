@@ -9,6 +9,8 @@ type Status = {
   whatsapp?: string;
   hasPendingQr?: boolean;
   error?: string;
+  outdated?: boolean;
+  build?: string | null;
 };
 
 export function WhatsAppConnectPanel() {
@@ -86,6 +88,23 @@ export function WhatsAppConnectPanel() {
           <p className="text-sm text-muted">
             Ya puedes enviar mensajes a tus pacientes desde cada cita.
           </p>
+          {status?.outdated ? (
+            <p className="rounded-2xl bg-burgundy/10 px-4 py-3 text-left text-sm text-burgundy">
+              El bot en Render está <strong>desactualizado</strong> (aún responde “Soy el bot…”).
+              En{" "}
+              <a
+                href="https://dashboard.render.com"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold underline"
+              >
+                dashboard.render.com
+              </a>{" "}
+              → servicio <strong>edwinpsicologo</strong> → <strong>Manual Deploy</strong> →{" "}
+              <strong>Clear build cache &amp; deploy</strong>. No uses Logout; la sesión se
+              mantiene.
+            </p>
+          ) : null}
           <Link href="/admin" className="ios-btn ios-btn-primary w-full">
             Ir a la agenda
           </Link>
