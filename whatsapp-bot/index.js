@@ -41,6 +41,19 @@ let latestQr = null;
 let latestQrAt = null;
 let waStatus = "starting";
 
+/** Cache de mensajes enviados — evita “Esperando el mensaje…” al reintentar cifrado. */
+const recentMessages = new Map();
+const MAX_RECENT = 200;
+
+function rememberMessage(id, message) {
+  if (!id || !message) return;
+  recentMessages.set(id, message);
+  if (recentMessages.size > MAX_RECENT) {
+    const first = recentMessages.keys().next().value;
+    recentMessages.delete(first);
+  }
+}
+
 async function connectMongo() {
   mongoose.set("strictQuery", true);
   await mongoose.connect(MONGO_URI, {
@@ -73,7 +86,11 @@ async function startWhatsApp() {
       keepAliveIntervalMs: 25_000,
       connectTimeoutMs: 60_000,
       defaultQueryTimeoutMs: 60_000,
-      getMessage: async () => undefined,
+      // Crítico: sin esto WhatsApp muestra “Esperando el mensaje…”
+      getMessage: async (key) => {
+        if (!key?.id) return undefined;
+        return recentMessages.get(key.id);
+      },
     });
 
     sock.ev.on("creds.update", async () => {
@@ -81,6 +98,15 @@ async function startWhatsApp() {
         await saveCreds();
       } catch (err) {
         console.error("❌ Error guardando creds en Mongo:", err.message);
+      }
+    });
+
+    // Guardar también mensajes propios por si WA pide reintento
+    sock.ev.on("messages.upsert", ({ messages }) => {
+      for (const msg of messages) {
+        if (msg?.key?.fromMe && msg.key.id && msg.message) {
+          rememberMessage(msg.key.id, msg.message);
+        }
       }
     });
 
@@ -305,14 +331,22 @@ async function main() {
 
     let digits = toRaw.replace(/\D/g, "");
     if (digits.length === 10) digits = `57${digits}`;
-    const jid = `${digits}@s.whatsapp.net`;
+    let jid = `${digits}@s.whatsapp.net`;
 
     try {
+      // Resolver JID real (cuenta existe / LID) antes de enviar
+      const checked = await sock.onWhatsApp(digits);
+      if (checked?.[0]?.exists && checked[0].jid) {
+        jid = checked[0].jid;
+      }
+
       const sent = await sock.sendMessage(jid, { text });
+      const mid = sent?.key?.id;
+      rememberMessage(mid, sent?.message ?? { conversation: text });
       console.log(`📤 Enviado a ${jid}`);
       return res.json({
         ok: true,
-        messageId: sent?.key?.id ?? "sent",
+        messageId: mid ?? "sent",
         to: jid,
       });
     } catch (err) {

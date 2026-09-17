@@ -318,13 +318,9 @@ export async function confirmAppointmentAction(
 
   const confirmWaUrl = whatsappLink(updated.patientPhone, confirmMessage);
 
-  // WhatsApp #2: confirmación al paciente (si hay bot); si no, Edwin envía con el botón
-  let whatsappSent = false;
-  if (isWhatsAppConfigured()) {
-    const { sendWhatsAppText } = await import("@/lib/whatsapp");
-    const send = await sendWhatsAppText(updated.patientPhone, confirmMessage);
-    whatsappSent = send.ok;
-  }
+  // No auto-enviar por el bot: si la sesión falla, el paciente ve
+  // “Esperando el mensaje…”. Edwin confirma con Abrir WhatsApp.
+  const whatsappSent = false;
 
   await notifyEdwin({
     title: `Cita confirmada · ${updated.patientName}`,
