@@ -24,21 +24,22 @@ export async function GET() {
     const data = (await res.json()) as {
       connected?: boolean;
       whatsapp?: string;
-      hasPendingQr?: boolean;
+      hasPendingPairing?: boolean;
+      pairingCode?: string | null;
+      pairingPhone?: string | null;
       build?: string;
       autoReply?: boolean;
     };
-
-    const build = data.build ?? null;
-    const outdated = data.autoReply !== false;
 
     return NextResponse.json({
       ok: true,
       connected: Boolean(data.connected),
       whatsapp: data.whatsapp,
-      hasPendingQr: Boolean(data.hasPendingQr),
-      build,
-      outdated,
+      hasPendingPairing: Boolean(data.hasPendingPairing),
+      pairingCode: data.pairingCode ?? null,
+      pairingPhone: data.pairingPhone ?? null,
+      build: data.build ?? null,
+      outdated: data.autoReply !== false,
     });
   } catch {
     return NextResponse.json({

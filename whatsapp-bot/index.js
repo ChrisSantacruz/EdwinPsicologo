@@ -1,14 +1,13 @@
 /**
- * Bot WhatsApp (Baileys) + sesión en MongoDB Atlas
- * Solo envía desde el panel (/send). Sin auto-respuestas.
+ * Bot WhatsApp (Baileys) — solo envío desde el panel.
+ * Login: código de emparejamiento (sin QR).
+ * Sin historial / sin auto-respuestas.
  */
 require("dotenv").config();
 
 const express = require("express");
 const mongoose = require("mongoose");
 const pino = require("pino");
-const QRCode = require("qrcode");
-const qrcodeTerminal = require("qrcode-terminal");
 const { Boom } = require("@hapi/boom");
 const makeWASocket = require("@whiskeysockets/baileys").default;
 const {
@@ -20,7 +19,6 @@ const {
 const mongoAuth = require("./mongoAuth");
 const { useMongoAuthState, clearMongoAuthState } = mongoAuth;
 
-// Opcionales (si Render tiene mongoAuth viejo, no tumbar el proceso)
 const rememberSentMessage =
   typeof mongoAuth.rememberSentMessage === "function"
     ? mongoAuth.rememberSentMessage
@@ -33,48 +31,48 @@ const loadSentMessage =
 const MONGO_URI = process.env.MONGO_URI;
 const PORT = Number(process.env.PORT || 3001);
 const SESSION_ID = process.env.WA_SESSION_ID || "default";
-const BOT_BUILD = "2026-09-17-phone-retry-v13";
+/** Número a vincular, solo dígitos con país. Ej: 573005116999 */
+const PAIRING_PHONE = (process.env.WA_PAIRING_PHONE || "").replace(/\D/g, "");
+const BOT_BUILD = "2026-09-18-paircode-slim-v1";
 
 const logger = pino({ level: process.env.LOG_LEVEL || "error" });
 const baileysLogger = logger.child({ module: "baileys" });
 
 if (!MONGO_URI) {
-  console.error("❌ Falta MONGO_URI en .env");
+  console.error("❌ Falta MONGO_URI");
   process.exit(1);
 }
 
 let sock = null;
 let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 15;
+const MAX_RECONNECT = 12;
 let isConnecting = false;
 let shuttingDown = false;
 let reconnectTimer = null;
-let connectedAt = 0;
-/** Tras open, esperar pending notifications (o este tope) antes de enviar. */
-const SEND_READY_FALLBACK_MS = 2_500;
-/** Cuánto puede esperar /send a que la sesión quede lista (Vercel ~60s max). */
-const SEND_WAIT_READY_MS = 12_000;
 
-let latestQr = null;
-let latestQrAt = null;
 let waStatus = "starting";
-/** true cuando open + (pending notifications o fallback). */
 let sendReady = false;
 let sendReadyTimer = null;
+let pairingCode = null;
+let pairingRequested = false;
 
 const recentMessages = new Map();
-const MAX_RECENT = 200;
+const MAX_RECENT = 80;
+const SEND_READY_MS = 2_000;
+const SEND_WAIT_MS = 12_000;
 
 async function rememberMessage(id, message, remoteJid) {
   if (!id || !message) return;
   recentMessages.set(id, message);
   if (remoteJid) recentMessages.set(`${remoteJid}::${id}`, message);
-  if (recentMessages.size > MAX_RECENT * 2) {
-    const first = recentMessages.keys().next().value;
-    recentMessages.delete(first);
+  while (recentMessages.size > MAX_RECENT * 2) {
+    recentMessages.delete(recentMessages.keys().next().value);
   }
-  // Esperar persistencia: el celular pide reintento y sin esto queda “Esperando el mensaje…”
   await rememberSentMessage(SESSION_ID, id, message, remoteJid);
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 function clearReconnectTimer() {
@@ -100,32 +98,26 @@ function markSendReady(reason) {
   if (sendReady) return;
   sendReady = true;
   clearSendReadyTimer();
-  console.log(`✅ Listo para enviar (${reason}). Build`, BOT_BUILD);
+  console.log(`✅ Listo para enviar (${reason}) · ${BOT_BUILD}`);
 }
 
 function scheduleSendReadyFallback() {
   clearSendReadyTimer();
   sendReadyTimer = setTimeout(() => {
     sendReadyTimer = null;
-    if (sock?.user && waStatus === "connected") {
-      markSendReady("fallback");
-    }
-  }, SEND_READY_FALLBACK_MS);
+    if (sock?.user && waStatus === "connected") markSendReady("fallback");
+  }, SEND_READY_MS);
 }
 
 function scheduleReconnect(delayMs) {
   clearReconnectTimer();
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    if (!shuttingDown) startWhatsApp();
+    if (!shuttingDown) void startWhatsApp();
   }, delayMs);
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitUntilSendReady(timeoutMs = SEND_WAIT_READY_MS) {
+async function waitUntilSendReady(timeoutMs = SEND_WAIT_MS) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     if (shuttingDown) return false;
@@ -139,7 +131,6 @@ async function endSocketQuietly() {
   const prev = sock;
   sock = null;
   markSendNotReady();
-  connectedAt = 0;
   if (!prev) return;
   try {
     prev.ev?.removeAllListeners?.();
@@ -153,26 +144,45 @@ async function endSocketQuietly() {
   }
 }
 
+async function requestPairingIfNeeded() {
+  if (!sock || pairingRequested || sock.authState?.creds?.registered) return;
+  if (!PAIRING_PHONE) {
+    console.error("❌ Falta WA_PAIRING_PHONE (ej. 573005116999)");
+    waStatus = "error";
+    return;
+  }
+  pairingRequested = true;
+  try {
+    const code = await sock.requestPairingCode(PAIRING_PHONE);
+    pairingCode = String(code || "").replace(/[^0-9A-Z]/gi, "");
+    waStatus = "waiting_pairing";
+    console.log(`\n======= CÓDIGO DE VÍNCULO =======\n${pairingCode}\nWhatsApp → Dispositivos vinculados → Vincular con número\n`);
+  } catch (err) {
+    pairingRequested = false;
+    console.error("requestPairingCode:", err.message);
+    waStatus = "error";
+  }
+}
+
 async function connectMongo() {
   mongoose.set("strictQuery", true);
-  await mongoose.connect(MONGO_URI, {
-    serverSelectionTimeoutMS: 15_000,
-  });
-  console.log("✅ MongoDB Atlas conectado");
+  await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 15_000 });
+  console.log("✅ MongoDB conectado");
 }
 
 async function startWhatsApp() {
   if (isConnecting || shuttingDown) return;
   isConnecting = true;
   waStatus = "connecting";
+  pairingCode = null;
+  pairingRequested = false;
   clearReconnectTimer();
 
   try {
     await endSocketQuietly();
 
     const { state, saveCreds } = await useMongoAuthState(SESSION_ID);
-    const { version, isLatest } = await fetchLatestBaileysVersion();
-    console.log(`📦 Baileys WA v${version.join(".")} (latest: ${isLatest})`);
+    const { version } = await fetchLatestBaileysVersion();
 
     sock = makeWASocket({
       version,
@@ -183,16 +193,15 @@ async function startWhatsApp() {
       logger: baileysLogger,
       printQRInTerminal: false,
       markOnlineOnConnect: false,
+      // No traer historial al reconectar
       syncFullHistory: false,
-      // props/blocklist ayudan a estabilizar la sesión tras el QR
-      fireInitQueries: true,
       shouldSyncHistoryMessage: () => false,
+      // Menos queries de arranque (contactos, blocklist, etc.)
+      fireInitQueries: false,
       generateHighQualityLinkPreview: false,
-      keepAliveIntervalMs: 25_000,
-      connectTimeoutMs: 90_000,
-      defaultQueryTimeoutMs: 90_000,
-      retryRequestDelayMs: 500,
-      maxMsgRetryCount: 8,
+      keepAliveIntervalMs: 30_000,
+      connectTimeoutMs: 60_000,
+      defaultQueryTimeoutMs: 60_000,
       getMessage: async (key) => {
         if (!key?.id) return undefined;
         const byJid = key.remoteJid
@@ -202,14 +211,7 @@ async function startWhatsApp() {
         const cached = recentMessages.get(key.id);
         if (cached) return cached;
         try {
-          const fromDb = await loadSentMessage(SESSION_ID, key.id);
-          if (fromDb) {
-            recentMessages.set(key.id, fromDb);
-            if (key.remoteJid) {
-              recentMessages.set(`${key.remoteJid}::${key.id}`, fromDb);
-            }
-          }
-          return fromDb;
+          return await loadSentMessage(SESSION_ID, key.id);
         } catch {
           return undefined;
         }
@@ -220,11 +222,13 @@ async function startWhatsApp() {
       try {
         await saveCreds();
       } catch (err) {
-        console.error("❌ Error guardando creds:", err.message);
+        console.error("saveCreds:", err.message);
       }
     });
 
-    sock.ev.on("messages.upsert", ({ messages }) => {
+    // Solo eco de lo que ENVIAMOS (reintento del celular). Ignora chats entrantes.
+    sock.ev.on("messages.upsert", ({ messages, type }) => {
+      if (type === "append") return; // historial/offline — no procesar
       for (const msg of messages) {
         if (msg?.key?.fromMe && msg.key.id && msg.message) {
           void rememberMessage(msg.key.id, msg.message, msg.key.remoteJid);
@@ -232,57 +236,27 @@ async function startWhatsApp() {
       }
     });
 
-    // Cuando el celular pide reintento del mensaje (placeholder “Esperando…”)
-    sock.ev.on("messages.update", (updates) => {
-      for (const u of updates) {
-        if (u?.key?.fromMe && u.key.id) {
-          const cached =
-            recentMessages.get(u.key.id) ||
-            (u.key.remoteJid
-              ? recentMessages.get(`${u.key.remoteJid}::${u.key.id}`)
-              : undefined);
-          if (cached) {
-            console.log(`🔁 Retry/update para ${u.key.id}`);
-          }
-        }
-      }
-    });
-
     sock.ev.on("connection.update", async (update) => {
-      const { connection, lastDisconnect, qr, receivedPendingNotifications } =
-        update;
+      const { connection, lastDisconnect, qr, receivedPendingNotifications } = update;
 
-      if (qr) {
-        latestQr = qr;
-        latestQrAt = new Date();
-        waStatus = "waiting_qr";
+      // El evento `qr` también dispara en modo código — ahí pedimos el pairing code
+      if (qr && !sock?.authState?.creds?.registered) {
+        waStatus = "waiting_pairing";
         markSendNotReady();
-        console.log("\n======= ESCANEA EL QR =======");
-        console.log("Abre /qr en el navegador\n");
-        try {
-          qrcodeTerminal.generate(qr, { small: true });
-        } catch {
-          // ignore
-        }
+        void requestPairingIfNeeded();
       }
 
       if (connection === "open") {
         reconnectAttempts = 0;
         isConnecting = false;
-        latestQr = null;
-        connectedAt = Date.now();
+        pairingCode = null;
+        pairingRequested = false;
         waStatus = "connected";
         markSendNotReady();
         scheduleSendReadyFallback();
-        console.log("✅ WhatsApp conectado. Build", BOT_BUILD);
-        try {
-          await sock.sendPresenceUpdate("available");
-        } catch {
-          // ignore
-        }
+        console.log("✅ WhatsApp conectado ·", BOT_BUILD);
       }
 
-      // Sesión usable para enviar (Baileys ya procesó notificaciones iniciales)
       if (receivedPendingNotifications && sock?.user && waStatus === "connected") {
         markSendReady("pending_notifications");
       }
@@ -291,7 +265,8 @@ async function startWhatsApp() {
         isConnecting = false;
         waStatus = "disconnected";
         markSendNotReady();
-        connectedAt = 0;
+        pairingCode = null;
+        pairingRequested = false;
 
         const statusCode =
           lastDisconnect?.error instanceof Boom
@@ -302,11 +277,10 @@ async function startWhatsApp() {
           statusCode === DisconnectReason.loggedOut ||
           statusCode === DisconnectReason.forbidden;
 
-        console.warn(`⚠️ Conexión cerrada. code=${statusCode} loggedOut=${loggedOut}`);
+        console.warn(`⚠️ Cerrado code=${statusCode} loggedOut=${loggedOut}`);
         await endSocketQuietly();
 
         if (loggedOut) {
-          latestQr = null;
           try {
             await clearMongoAuthState(SESSION_ID);
           } catch (err) {
@@ -318,15 +292,13 @@ async function startWhatsApp() {
         }
 
         if (shuttingDown) return;
-
-        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-          console.error("❌ Máximo de reintentos alcanzado.");
+        if (reconnectAttempts >= MAX_RECONNECT) {
+          console.error("❌ Máximo de reintentos");
           return;
         }
-
         reconnectAttempts += 1;
-        const delay = Math.min(1000 * 1.6 ** reconnectAttempts, 60_000);
-        console.log(`🔄 Reconectando en ${Math.round(delay)}ms…`);
+        const delay = Math.min(1000 * 1.6 ** reconnectAttempts, 45_000);
+        console.log(`🔄 Reconexion en ${Math.round(delay)}ms`);
         scheduleReconnect(delay);
       }
     });
@@ -334,38 +306,42 @@ async function startWhatsApp() {
     isConnecting = false;
     waStatus = "error";
     markSendNotReady();
-    console.error("❌ Error iniciando WhatsApp:", err);
+    console.error("❌ startWhatsApp:", err);
     await endSocketQuietly();
-    if (!shuttingDown && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+    if (!shuttingDown && reconnectAttempts < MAX_RECONNECT) {
       reconnectAttempts += 1;
       scheduleReconnect(Math.min(3000 * reconnectAttempts, 30_000));
     }
   }
 }
 
+function publicStatus() {
+  return {
+    ok: true,
+    service: "edwin-whatsapp-bot",
+    build: BOT_BUILD,
+    autoReply: false,
+    allowBotSend: true,
+    whatsapp: waStatus,
+    connected: Boolean(sock?.user),
+    sendReady: Boolean(sock?.user && sendReady),
+    sessionId: SESSION_ID,
+    pairingPhone: PAIRING_PHONE ? `…${PAIRING_PHONE.slice(-4)}` : null,
+    pairingCode: sock?.user ? null : pairingCode,
+    hasPendingPairing: Boolean(pairingCode) && !sock?.user,
+    // compat panel viejo
+    hasPendingQr: false,
+  };
+}
+
 async function main() {
   const app = express();
   app.use(express.json());
 
-  app.get("/", (_req, res) => {
-    res.json({
-      ok: true,
-      service: "edwin-whatsapp-bot",
-      build: BOT_BUILD,
-      autoReply: false,
-      allowBotSend: true,
-      whatsapp: waStatus,
-      connected: Boolean(sock?.user),
-      sendReady: Boolean(sock?.user && sendReady),
-      sessionId: SESSION_ID,
-      qrPage: "/qr",
-      hasPendingQr: Boolean(latestQr),
-    });
-  });
-
-  app.get("/health", (_req, res) => {
-    res.status(200).json({ ok: true, build: BOT_BUILD, autoReply: false });
-  });
+  app.get("/", (_req, res) => res.json(publicStatus()));
+  app.get("/health", (_req, res) =>
+    res.json({ ok: true, build: BOT_BUILD, autoReply: false }),
+  );
 
   app.post("/logout", async (req, res) => {
     const expected = process.env.BOT_SECRET?.trim();
@@ -381,8 +357,8 @@ async function main() {
     }
 
     try {
-      latestQr = null;
-      latestQrAt = null;
+      pairingCode = null;
+      pairingRequested = false;
       waStatus = "logging_out";
       markSendNotReady();
       clearReconnectTimer();
@@ -405,71 +381,45 @@ async function main() {
         sock = null;
       }
 
-      try {
-        await clearMongoAuthState(SESSION_ID);
-      } catch (err) {
-        console.error("clearMongoAuthState:", err.message);
-      }
-
+      await clearMongoAuthState(SESSION_ID).catch(() => {});
       reconnectAttempts = 0;
       isConnecting = false;
-      waStatus = "waiting_qr";
+      waStatus = "waiting_pairing";
       scheduleReconnect(1500);
 
       return res.json({
         ok: true,
-        message: "Sesión limpiada. En unos segundos aparecerá un QR nuevo.",
+        message: "Sesión limpia. En unos segundos verás un código nuevo.",
       });
     } catch (err) {
       console.error("/logout:", err.message);
       sock = null;
       isConnecting = false;
-      waStatus = "waiting_qr";
+      waStatus = "waiting_pairing";
       await clearMongoAuthState(SESSION_ID).catch(() => {});
       scheduleReconnect(2000);
       return res.json({
         ok: true,
-        message: "Sesión reiniciada. Espera el QR nuevo.",
+        message: "Sesión reiniciada. Espera el código nuevo.",
       });
-    }
-  });
-
-  app.get("/qr.png", async (_req, res) => {
-    if (sock?.user) return res.status(404).send("already_connected");
-    if (!latestQr) return res.status(404).send("waiting");
-    try {
-      const png = await QRCode.toBuffer(latestQr, {
-        type: "png",
-        width: 400,
-        margin: 2,
-        errorCorrectionLevel: "M",
-      });
-      res.set("Cache-Control", "no-store");
-      return res.type("png").send(png);
-    } catch (err) {
-      console.error("qr.png:", err.message);
-      return res.status(500).send("error");
     }
   });
 
   app.post("/send", async (req, res) => {
     const expected = process.env.BOT_SECRET?.trim();
     if (!expected) {
-      return res.status(503).json({ ok: false, error: "BOT_SECRET no configurado en Render" });
+      return res.status(503).json({ ok: false, error: "BOT_SECRET no configurado" });
     }
-
     const provided =
       req.headers["x-bot-secret"] ||
       req.headers["authorization"]?.replace(/^Bearer\s+/i, "") ||
       req.body?.secret;
-
     if (provided !== expected) {
       return res.status(401).json({ ok: false, error: "unauthorized" });
     }
 
-    // Tras QR / hibernate: esperar a que la sesión esté lista en vez de fallar al toque
     if (!sock?.user || waStatus !== "connected" || !sendReady) {
-      const ready = await waitUntilSendReady(SEND_WAIT_READY_MS);
+      const ready = await waitUntilSendReady(SEND_WAIT_MS);
       if (!ready || !sock?.user || waStatus !== "connected") {
         return res.status(503).json({
           ok: false,
@@ -491,30 +441,19 @@ async function main() {
     let jid = `${digits}@s.whatsapp.net`;
 
     try {
-      let checked;
       try {
-        checked = await sock.onWhatsApp(digits);
-      } catch (err) {
-        console.error("onWhatsApp:", err.message);
-      }
-      if (checked?.[0]?.exists && checked[0].jid) {
-        jid = checked[0].jid;
-      }
-
-      try {
-        await sock.presenceSubscribe(jid).catch(() => {});
-        await sock.sendPresenceUpdate("available").catch(() => {});
+        const checked = await sock.onWhatsApp(digits);
+        if (checked?.[0]?.exists && checked[0].jid) jid = checked[0].jid;
       } catch {
         // ignore
       }
 
-      // Establecer sesión Signal antes de enviar (celular vs Web)
       try {
         if (typeof sock.assertSessions === "function") {
           await sock.assertSessions([jid], true);
         }
-      } catch (err) {
-        console.error("assertSessions:", err.message);
+      } catch {
+        // ignore
       }
 
       let sent;
@@ -526,17 +465,8 @@ async function main() {
           break;
         } catch (err) {
           lastErr = err;
-          console.error(`Error /send intento ${attempt}:`, err.message);
-          if (attempt < 3) {
-            try {
-              if (typeof sock.assertSessions === "function") {
-                await sock.assertSessions([jid], true);
-              }
-            } catch {
-              // ignore
-            }
-            await sleep(1200 * attempt);
-          }
+          console.error(`send intento ${attempt}:`, err.message);
+          if (attempt < 3) await sleep(1000 * attempt);
         }
       }
 
@@ -549,15 +479,12 @@ async function main() {
       }
 
       const mid = sent?.key?.id;
-      // Guardar el texto siempre (además del proto) para que el celular pueda pedir reintento
-      const payload = sent?.message ?? { conversation: text };
-      await rememberMessage(mid, payload, jid);
-      // Pequeña pausa para que el primary pida resend si hace falta
-      await sleep(800);
-      console.log(`📤 Enviado a ${jid} id=${mid}`);
+      await rememberMessage(mid, sent?.message ?? { conversation: text }, jid);
+      await sleep(600);
+      console.log(`📤 ${jid} id=${mid}`);
       return res.json({ ok: true, messageId: mid ?? "sent", to: jid });
     } catch (err) {
-      console.error("Error /send:", err.message);
+      console.error("/send:", err.message);
       return res.status(500).json({
         ok: false,
         error: err.message || "send_failed",
@@ -566,62 +493,18 @@ async function main() {
     }
   });
 
-  app.get("/qr", async (_req, res) => {
-    if (sock?.user) {
-      return res
-        .status(200)
-        .type("html")
-        .send(`<!doctype html><html lang="es"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>WhatsApp conectado</title>
-<style>body{font-family:system-ui;max-width:420px;margin:40px auto;padding:0 16px;text-align:center}.ok{color:#1f7a4c;font-weight:700}</style></head>
-<body><h1 class="ok">✅ WhatsApp conectado</h1><p>Build ${BOT_BUILD}</p></body></html>`);
-    }
-
-    if (!latestQr) {
-      return res
-        .status(200)
-        .type("html")
-        .send(`<!doctype html><html lang="es"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta http-equiv="refresh" content="3"/><title>Esperando QR</title>
-<style>body{font-family:system-ui;max-width:420px;margin:40px auto;padding:0 16px;text-align:center;color:#333}</style></head>
-<body><h1>Esperando QR…</h1><p>Estado: <strong>${waStatus}</strong></p></body></html>`);
-    }
-
-    try {
-      const dataUrl = await QRCode.toDataURL(latestQr, {
-        width: 360,
-        margin: 2,
-        errorCorrectionLevel: "M",
-      });
-      return res
-        .status(200)
-        .type("html")
-        .send(`<!doctype html><html lang="es"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta http-equiv="refresh" content="15"/><title>Escanear WhatsApp</title>
-<style>body{font-family:system-ui;max-width:420px;margin:32px auto;padding:0 16px;text-align:center}img{width:100%;max-width:360px;border-radius:16px;border:1px solid #ddd}</style></head>
-<body><h1>Escanea este QR</h1><p>WhatsApp → Dispositivos vinculados</p><img src="${dataUrl}" alt="QR"/></body></html>`);
-    } catch (err) {
-      console.error("QR html:", err.message);
-      return res.status(500).send("No se pudo generar el QR");
-    }
-  });
-
   app.listen(PORT, () => {
-    console.log(`🌐 HTTP listo en puerto ${PORT}`);
-    console.log(`🏷  Build ${BOT_BUILD}`);
+    console.log(`🌐 Puerto ${PORT} · ${BOT_BUILD}`);
+    if (!PAIRING_PHONE) console.warn("⚠️ Configura WA_PAIRING_PHONE=573005116999 en Render");
   });
 
-  try {
-    await connectMongo();
-  } catch (err) {
-    console.error("❌ MongoDB:", err.message);
-    process.exit(1);
-  }
-
+  await connectMongo();
   await startWhatsApp();
 }
 
 async function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log("Apagando…");
   clearReconnectTimer();
   try {
     sock?.end?.(undefined);

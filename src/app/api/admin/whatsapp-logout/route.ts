@@ -50,7 +50,7 @@ export async function POST() {
 
     return NextResponse.json({
       ok: true,
-      message: data.message ?? "Sesión limpiada. Escanea el QR nuevo.",
+      message: data.message ?? "Sesión limpia. Espera el código nuevo.",
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "unknown";

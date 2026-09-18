@@ -1,57 +1,23 @@
-# Bot WhatsApp (Baileys) + MongoDB Atlas
+# Bot WhatsApp (Baileys) — solo envío
 
-Servicio **separado** del panel Next.js. La sesión de WhatsApp vive en Atlas (`WhatsAppAuth`), no en disco (ideal para Render free).
+Sesión en MongoDB Atlas. Login con **código de emparejamiento** (sin QR). No sincroniza historial ni auto-responde.
 
-## 1. Local
+## Variables (Render)
 
-```bash
-cd whatsapp-bot
-cp .env.example .env
-# MONGO_URI=mongodb+srv://...
-npm install
-npm run test:mongo   # verifica Atlas + auth
-npm start            # imprime QR en consola
-```
+| Variable | Ejemplo |
+|----------|---------|
+| `MONGO_URI` | `mongodb+srv://…/edwin_whatsapp` |
+| `BOT_SECRET` | mismo que `WHATSAPP_BOT_SECRET` en Vercel |
+| `WA_PAIRING_PHONE` | `573005116999` (país + número, solo dígitos) |
+| `WA_SESSION_ID` | `default` |
 
-1. WhatsApp → **Dispositivos vinculados** → escanear QR  
-2. Ctrl+C → `npm start` otra vez → **sin QR**  
-3. Escríbele `hola` al número → responde el bot  
+## Vincular
 
-Atlas → Network Access → `0.0.0.0/0`
+1. Deploy → abre el panel **Admin → WhatsApp**
+2. En el celular: Dispositivos vinculados → Vincular → **Vincular con número**
+3. Escribe el código de 8 dígitos del panel
 
-## 2. Deploy en Render
+## Notas
 
-1. Repo en GitHub (sin `.env`; solo env vars en Render)  
-2. **New → Blueprint** con `render.yaml`, o Web Service manual:
-   - Root Directory: `whatsapp-bot`
-   - Build: `npm install`
-   - Start: `npm start`
-   - Health Check: `/health`
-3. Environment:
-   - `MONGO_URI` = tu cadena Atlas (con nombre de DB, ej. `/edwin_whatsapp`)
-   - `WA_SESSION_ID=default`
-   - `LOG_LEVEL=info`
-4. Deploy → abre **Logs** → escanea el QR la primera vez  
-5. Reinicia el servicio → debe conectar **sin QR**
-
-URL de health: `https://TU-SERVICIO.onrender.com/health`
-
-## 3. Notas Render free
-
-| Situación | Qué pasa |
-|-----------|----------|
-| Sleep ~15 min sin tráfico | WhatsApp se desconecta |
-| Alguien pega `/health` o llega request | Servicio despierta y **reconecta con sesión Mongo** |
-| Cierras sesión en el celular | Se borra auth en Atlas y pide QR nuevo |
-
-Tip: un cron externo (cron-job.org) pegando `/health` cada 10 min reduce el sleep.
-
-## 4. Seguridad
-
-- Nunca subas `.env` al repo  
-- Si pegaste la URI en un chat, **rota el password** en Atlas → Database Access  
-- Usa usuario con permisos solo a la DB del bot  
-
-## 5. Relación con el panel de citas
-
-El panel Next.js (`edwin-citas`) sigue separado. Más adelante se puede llamar a este bot por HTTP/cola para enviar confirmaciones. Hoy el bot demuestra sesión estable + auto-reply `hola`.
+- Render free se duerme; al despertar reconecta con sesión Mongo (sin pedir código de nuevo si la sesión sigue válida).
+- Si WhatsApp cierra el vínculo en el celular, toca “Pedir código nuevo” en el panel.

@@ -7,15 +7,22 @@ type Status = {
   ok: boolean;
   connected?: boolean;
   whatsapp?: string;
-  hasPendingQr?: boolean;
+  hasPendingPairing?: boolean;
+  pairingCode?: string | null;
+  pairingPhone?: string | null;
   error?: string;
   outdated?: boolean;
   build?: string | null;
 };
 
+function formatPairCode(code: string) {
+  const clean = code.replace(/\s/g, "");
+  if (clean.length === 8) return `${clean.slice(0, 4)}-${clean.slice(4)}`;
+  return clean;
+}
+
 export function WhatsAppConnectPanel() {
   const [status, setStatus] = useState<Status | null>(null);
-  const [tick, setTick] = useState(0);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -34,11 +41,7 @@ export function WhatsAppConnectPanel() {
     }
 
     void load();
-    const id = setInterval(() => {
-      setTick((t) => t + 1);
-      void load();
-    }, 5000);
-
+    const id = setInterval(() => void load(), 4000);
     return () => {
       cancelled = true;
       clearInterval(id);
@@ -56,8 +59,7 @@ export function WhatsAppConnectPanel() {
           setErr(data.error ?? "No se pudo limpiar la sesión");
           return;
         }
-        setMsg(data.message ?? "Sesión limpia. Escanea el QR nuevo.");
-        setTick((t) => t + 1);
+        setMsg(data.message ?? "Sesión limpia. Espera el código nuevo.");
       } catch {
         setErr("No se pudo contactar WhatsApp. Intenta de nuevo en un momento.");
       }
@@ -65,7 +67,7 @@ export function WhatsAppConnectPanel() {
   }
 
   const connected = Boolean(status?.connected);
-  const waitingQr = Boolean(status?.hasPendingQr) && !connected;
+  const code = status?.pairingCode ? formatPairCode(status.pairingCode) : null;
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -75,7 +77,7 @@ export function WhatsAppConnectPanel() {
         </Link>
         <h2 className="mt-2 font-display text-3xl font-semibold text-ink">WhatsApp</h2>
         <p className="mt-1 text-sm text-muted">
-          Vincula el celular. Luego en cada cita puedes usar Enviar o Abrir WhatsApp.
+          Vincula con un código (sin QR). Solo envío desde el panel.
         </p>
       </div>
 
@@ -85,12 +87,10 @@ export function WhatsAppConnectPanel() {
             <span className="text-2xl font-semibold">✓</span>
           </div>
           <h3 className="font-display text-2xl font-semibold text-ink">WhatsApp conectado</h3>
-          <p className="text-sm text-muted">
-            Listo para enviar desde el panel. No hace falta escanear QR.
-          </p>
+          <p className="text-sm text-muted">Listo para Enviar desde cada cita.</p>
           {status?.outdated ? (
             <p className="rounded-2xl bg-burgundy/10 px-4 py-3 text-left text-sm text-burgundy">
-              El bot en Render puede estar desactualizado. Manual Deploy → Clear build cache.
+              El bot en Render puede estar desactualizado. Haz Manual Deploy → Clear build cache.
               {status.build ? (
                 <>
                   {" "}
@@ -108,34 +108,36 @@ export function WhatsAppConnectPanel() {
             onClick={resetSession}
             className="ios-btn ios-btn-secondary w-full disabled:opacity-60"
           >
-            {pending ? "Limpiando…" : "Cambiar de WhatsApp (nuevo QR)"}
+            {pending ? "Limpiando…" : "Cambiar de WhatsApp"}
           </button>
-          <p className="text-xs text-muted">
-            Solo si quieres vincular otro número. Cierra la sesión actual.
-          </p>
         </div>
       ) : (
         <div className="ios-card space-y-4 p-6">
           <ol className="list-decimal space-y-2 pl-5 text-sm text-muted">
-            <li>Abre WhatsApp en el celular de prueba</li>
+            <li>Abre WhatsApp en el celular</li>
             <li>Menú → Dispositivos vinculados → Vincular dispositivo</li>
-            <li>Escanea el código de abajo</li>
+            <li>
+              Elige <strong className="text-ink">Vincular con número de teléfono</strong>
+            </li>
+            <li>Escribe el código de abajo</li>
           </ol>
 
-          <div className="flex min-h-[280px] items-center justify-center rounded-2xl bg-canvas p-4">
-            {waitingQr ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={tick}
-                src={`/api/admin/whatsapp-qr?t=${tick}`}
-                alt="Código para vincular WhatsApp"
-                className="h-auto w-full max-w-[280px] rounded-xl bg-white p-2"
-              />
+          <div className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-2xl bg-canvas px-4 py-8">
+            {code ? (
+              <>
+                <p className="font-mono text-4xl font-bold tracking-[0.2em] text-ink sm:text-5xl">
+                  {code}
+                </p>
+                <p className="text-xs text-muted">
+                  Número del bot
+                  {status?.pairingPhone ? `: ${status.pairingPhone}` : ""}
+                </p>
+              </>
             ) : (
-              <p className="px-4 text-center text-sm text-muted">
+              <p className="px-2 text-center text-sm text-muted">
                 {status?.error ??
                   (status?.ok
-                    ? "Esperando código QR… Si no aparece, toca “Pedir QR nuevo” (Render free tarda en despertar)."
+                    ? "Generando código… Si tarda, Render free está despertando. Toca “Pedir código nuevo”."
                     : "Preparando…")}
               </p>
             )}
@@ -147,11 +149,11 @@ export function WhatsAppConnectPanel() {
             onClick={resetSession}
             className="ios-btn ios-btn-secondary w-full disabled:opacity-60"
           >
-            {pending ? "Preparando…" : "Pedir QR nuevo"}
+            {pending ? "Preparando…" : "Pedir código nuevo"}
           </button>
 
           <p className="text-xs text-muted">
-            El código se actualiza solo. Cuando quede vinculado, verás “conectado”.
+            El código se renueva solo. Cuando vincule, verás “conectado”.
           </p>
         </div>
       )}
