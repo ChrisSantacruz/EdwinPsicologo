@@ -31,9 +31,9 @@ const loadSentMessage =
 const MONGO_URI = process.env.MONGO_URI;
 const PORT = Number(process.env.PORT || 3001);
 const SESSION_ID = process.env.WA_SESSION_ID || "default";
-/** Número a vincular, solo dígitos con país. Ej: 573028124298 */
-const PAIRING_PHONE = (process.env.WA_PAIRING_PHONE || "573028124298").replace(/\D/g, "");
-const BOT_BUILD = "2026-09-18-paircode-slim-v3";
+/** Número a vincular, solo dígitos con país. Ej: 573005116999 */
+const PAIRING_PHONE = (process.env.WA_PAIRING_PHONE || "573005116999").replace(/\D/g, "");
+const BOT_BUILD = "2026-09-18-paircode-edwin-v4";
 
 const logger = pino({ level: process.env.LOG_LEVEL || "error" });
 const baileysLogger = logger.child({ module: "baileys" });
