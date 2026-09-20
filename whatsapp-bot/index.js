@@ -27,16 +27,21 @@ const loadSentMessage =
   typeof mongoAuth.loadSentMessage === "function"
     ? mongoAuth.loadSentMessage
     : async () => undefined;
+const clearAppStateSyncState =
+  typeof mongoAuth.clearAppStateSyncState === "function"
+    ? mongoAuth.clearAppStateSyncState
+    : async () => {};
 
 const MONGO_URI = process.env.MONGO_URI;
 const PORT = Number(process.env.PORT || 3001);
 const SESSION_ID = process.env.WA_SESSION_ID || "default";
 /** Número de Edwin (producción). No usar env de prueba. */
 const PAIRING_PHONE = "573005116999";
-const BOT_BUILD = "2026-09-19-edwin-only-v5";
+const BOT_BUILD = "2026-09-19-send-stable-v6";
 
+// Baileys en "info" llena logs y no aporta; solo errores graves.
 const logger = pino({ level: process.env.LOG_LEVEL || "error" });
-const baileysLogger = logger.child({ module: "baileys" });
+const baileysLogger = pino({ level: "silent" });
 
 if (!MONGO_URI) {
   console.error("❌ Falta MONGO_URI");
@@ -181,6 +186,13 @@ async function startWhatsApp() {
   try {
     await endSocketQuietly();
 
+    // Evita loop "failed to find key to decode patch" (no necesitamos sync de chats).
+    try {
+      await clearAppStateSyncState(SESSION_ID);
+    } catch (err) {
+      console.error("clearAppStateSyncState:", err.message);
+    }
+
     const { state, saveCreds } = await useMongoAuthState(SESSION_ID);
     const { version } = await fetchLatestBaileysVersion();
 
@@ -193,10 +205,12 @@ async function startWhatsApp() {
       logger: baileysLogger,
       printQRInTerminal: false,
       markOnlineOnConnect: false,
-      // No traer historial al reconectar
       syncFullHistory: false,
       shouldSyncHistoryMessage: () => false,
-      // Menos queries de arranque (contactos, blocklist, etc.)
+      shouldIgnoreJid: (jid) => {
+        // No procesar status/broadcast; solo nos importa enviar.
+        return jid === "status@broadcast";
+      },
       fireInitQueries: false,
       generateHighQualityLinkPreview: false,
       keepAliveIntervalMs: 30_000,
